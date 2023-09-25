@@ -15,85 +15,68 @@
 
 #include "commands.h"
 #include "message.h"
+#include "udp.h"
+#include "file_ops.h"
 
 using namespace std;
 
 
-void getFiles(const char * directoryPath, char *& response) {
-    
-    DIR * dir = opendir(directoryPath);
-    
-    if (dir) {
-        vector<string> fileNames;
+void getFileResponseHandler(int sockfd, const struct sockaddr * remoteAddress, const char * filename, char *& response) {
+    int status = getFile(filename, response);
 
-        struct dirent* entry;
-        while ((entry = readdir(dir))) {
-            if (entry->d_type == DT_REG) { // Check if it's a regular file
-                fileNames.push_back(entry->d_name);
-            }
-        }
-
-        closedir(dir);
-
-        // Create a char buffer and concatenate the file names
-        string concatenatedFileNames;
-        for (const string& fileName : fileNames) {
-            concatenatedFileNames += fileName + '\n';
-        }
-
-        // Copy the concatenated file names to a char buffer
-        response = new char[concatenatedFileNames.size() + 2];
-        strcpy(response, concatenatedFileNames.c_str());
-    }
-}
-
-void getFile(const char * filename, char *& response) {
-    // int fileSize = getFileSize(filename);
-
-    ifstream filestream (filename, ios::binary | ios::ate);
-    if (!filestream.is_open()) {
-        cerr << "Error opening file: " << filename << endl;
-        response = "issue with file";
+    if (status != 0) {
+        strcpy(response, "could not get file");
         return;
     }
 
-    int fileSize = filestream.tellg();
-    filestream.seekg(0, ios::beg);
+    // break into packets for transmission
+    UDP_MSG * head = nullptr;
+    constructMessage(response, head);
 
-    response = new char[fileSize + 1];
-
-    if (!filestream.read(response, fileSize)) {
-        std::cerr << "Error reading file: " << filename << std::endl;
-        response = "issue with file";
-        return;
-    }
-
-    // Null-terminate the string
-    response[fileSize] = '\0';
-
-    filestream.close();
+    // ready to send
+    sendMessage(sockfd, head, remoteAddress);
 }
 
-
-void getFileResponseHandler(const char * filename, char *& response) {
-    getFile(filename, response);
+void receiveFileLoop(char *& fileContents) {
+    // loop until all packets are received from client
 }
 
 void putFileResponseHandler(const char * filename, char *& response) {
 
+    char * fileContents = nullptr;
+    // Wait for client to send file packets
+    receiveFileLoop(fileContents);
+
+    int status = putFile(filename, fileContents);
+
+    // allocate memory for response
+    response = new char[50];
+    memset(response, 0, sizeof(response));
+    if (status != 0) {
+        strcpy(response, "could not write file to server");
+        return;
+    }
+    strcpy(response, "copied file to server");
 }
 
 void deleteFileResponseHandler(const char * filename, char *& response) {
-    if (remove(filename) == 0) {
-        response = new char[50];
-        strcat(response, filename);
-        strcat(response, " removed");
+    // delete the file
+    int status = deleteFile(filename);
+
+    // set memory for the output parameter response
+    response = new char[50];
+
+    // check the status of deletion
+    if (status != 0) {
+        strcpy(response, "could not delete file");
+        return;
     }
+    strcpy(response, "file removed");
 }
 
 void listFilesResponseHandler(char *& response) {
     const char * currentDir = ".";
-    getFiles(currentDir, response);
+    readCurrentDirectory(currentDir, response);
 }
 
 void helpResponseHandler(char *& response) {
@@ -126,7 +109,7 @@ void commandNotFoundHandler(char *& response) {
     strcpy(response, command_not_found);
 }
 
-void handleClientRequest(struct udp_msg & clientMessage, char *& response) {
+void handleClientRequest(int sockfd, const struct sockaddr * remoteAddress, struct UDP_PACKET & clientMessage, char *& response) {
 
     // parse the client request
     char * request = clientMessage.data;
@@ -156,7 +139,7 @@ void handleClientRequest(struct udp_msg & clientMessage, char *& response) {
 
         if (strncmp(request, get_command, strlen(get_command)) == 0) {
             cout << "Get Handler!" << endl;
-            getFileResponseHandler(filename, response);
+            getFileResponseHandler(sockfd, filename, remoteAddress);
         }
         else if (strncmp(request, put_command, strlen(put_command)) == 0) {
             cout << "Put Handler!" << endl;
@@ -238,7 +221,7 @@ int main(int argc, char * argv[]) {
         }
         
         // deserialize the message
-        struct udp_msg clientMessage;
+        struct UDP_PACKET clientMessage;
         deserialize(packet, clientMessage);
 
         cout << "Message from client " << inet_ntoa(clientaddr.sin_addr) << " : " << clientMessage.data << endl;

@@ -7,20 +7,21 @@
 
 using namespace std;
 
-void serialize(struct udp_msg& message, char data[]) {
+void serialize(struct UDP_PACKET& packet, char * data) {
+    
     // Sequence number serialization
-    sprintf(data, "%d", message.sequence_number);
+    sprintf(data, "%d", packet.header.sequence_number);
+
     // Delimiter
-    strcat(data, &MSG_DELIMITER);
+    data[strlen(data)] = '#';
+
     // Data
-    strcat(data, message.data);
-    // End of packet data
-    data[strlen(data)] = '\0';
+    strcat(data, packet.data);
 }
 
-void deserialize(char data[], struct udp_msg& message) {
+void deserialize(char data[], struct UDP_PACKET& packet) {
     // Find the position of the delimiter
-    char * delimiterPtr = strchr(data, MSG_DELIMITER);
+    char * delimiterPtr = strchr(data, '#');
 
     if (delimiterPtr != nullptr) {
         // Calculate the length of the number part
@@ -35,7 +36,36 @@ void deserialize(char data[], struct udp_msg& message) {
         const char* byteArray = delimiterPtr + 1;
 
         // Convert the number part to an integer
-        message.sequence_number = atoi(numberArray);
-        strcpy(message.data, byteArray);
+        packet.header.sequence_number = atoi(numberArray);
+        strcpy(packet.data, byteArray);
+    }
+}
+
+void constructMessage(char *& data, UDP_MSG *& head) {
+    UDP_MSG *head = nullptr, *tail = nullptr;
+    cout << strlen(data) << " bytes" << endl;
+    int dataSize = strlen(data);
+
+    for (int i=0; i<dataSize; i+=MAX_DATA_SIZE) {
+        UDP_MSG *msg = new UDP_MSG;
+        int chunkSize = min(MAX_DATA_SIZE, dataSize - i);
+
+        // set header
+        msg->packet.header.sequence_number = i+1;
+        msg->packet.header.is_last_packet = false;
+
+        // copy data
+        memcpy(msg->packet.data, data + i, chunkSize);
+        msg->packet.data[chunkSize] = '\0';
+        msg->next = nullptr;
+
+        if (head == nullptr) {
+            head = msg;
+            tail = msg;
+        }
+        else {
+            tail->next = msg;
+            tail = msg;
+        }
     }
 }

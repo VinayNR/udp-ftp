@@ -1,18 +1,31 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
+#include <cstdint>
+
 const int MAX_MSG_SIZE = 1024;
 const int MAX_DATA_SIZE = 1000;
 
-const char MSG_DELIMITER = '#';
+struct UDP_HEADER {
+    uint16_t sequence_number;
+    uint32_t checksum;
+    bool is_last_packet;
+};
 
-struct udp_msg {
-    int sequence_number; // for ordering and re-transmisions
+struct UDP_PACKET {
+    UDP_HEADER header; // header
     char data[MAX_DATA_SIZE]; // the actual data
 };
 
-void serialize(struct udp_msg&, char []);
+struct UDP_MSG {
+    UDP_PACKET packet; // header
+    UDP_MSG * next;
+};
 
-void deserialize(char [], struct udp_msg&);
+void serialize(struct UDP_PACKET&, char *);
+
+void deserialize(char [], struct UDP_PACKET&);
+
+void constructMessage(char *&, UDP_MSG *&);
 
 #endif

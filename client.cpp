@@ -11,8 +11,102 @@
 #include <arpa/inet.h>
 
 #include "message.h"
+#include "commands.h"
 
 using namespace std;
+
+
+int sendUPDMessage(int sockfd, char * packet, const struct sockaddr * remoteAddress) {
+    // Send a message using sendto command
+    socklen_t serverlen = sizeof(struct sockaddr);
+    int bytesSent = sendto(sockfd, packet, strlen(packet), 0, remoteAddress, serverlen);
+
+    return bytesSent;
+}
+
+int receiveUPDMessage(int sockfd, char * packet, struct sockaddr * remoteAddress) {
+    // Receive a message using recvfrom command
+    socklen_t serverlen = sizeof(struct sockaddr);
+    int bytesReceived = recvfrom(sockfd, packet, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
+
+    return bytesReceived;
+}
+
+int sendCommand(int sockfd, char * command, const struct sockaddr * remoteAddress) {
+    // Create the message that will be serialized and sent over the network
+    struct UDP_MSG message;
+
+    // break into packets for transmission
+    UDP_MSG * head = nullptr;
+    constructMessage(command, head);
+
+    // send each packet
+    struct UDP_MSG * p;
+    while ()
+    char packet[MAX_MSG_SIZE];
+    memset(packet, 0, sizeof(packet));
+    serialize(msg, packet);
+
+    // send the message
+    int bytesSent = sendUPDMessage(sockfd, packet, remoteAddress);
+
+    cout << "Bytes sent: " << bytesSent << endl;
+
+    // error check for bytes sent
+    // do some error checking, retrying
+    if (bytesSent == -1) {
+        cerr << "Error sending data: " << strerror(errno) << endl;
+        return 1;
+    }
+
+    return 0;
+}
+
+int receiveResponse(int sockfd, char * packet, struct sockaddr * remoteAddress) {
+    // receive the message
+    int bytesReceived = receiveUPDMessage(sockfd, packet, remoteAddress);
+
+    cout << "Bytes received: " << bytesReceived << endl;
+
+    // error check for bytes sent
+    // do some error checking, retrying
+    if (bytesReceived == -1) {
+        cerr << "Error sending data: " << strerror(errno) << endl;
+        return 1;
+    }
+    return 0;
+}
+
+int startProcess(int sockfd, char * command, struct sockaddr *& remoteAddress) {
+
+    // send the command
+    int status = sendCommand(sockfd, command, remoteAddress);
+
+    if (status == 1) {
+        cerr << "Error sending the command" << endl;
+        return 1;
+    }
+
+    // Server return address
+    struct sockaddr_in returnserveraddr;
+    socklen_t serverlen = sizeof(struct sockaddr);
+
+    // response set to 0
+    char response[MAX_MSG_SIZE];
+    memset(response, 0, sizeof(response));
+
+    // Wait for the server to respond
+    status = receiveResponse(sockfd, response, (struct sockaddr*)&returnserveraddr);
+
+    cout << response << endl;
+
+    if (status == 1) {
+        cerr << "Error receving the message" << endl;
+        return 1;
+    }
+    return 0;
+}
+
 
 int main(int argc, char * argv[]) {
     // check if the command line usage is correct
@@ -55,7 +149,6 @@ int main(int argc, char * argv[]) {
     }
 
     struct sockaddr_in *serveraddr = (struct sockaddr_in *)serverinfo->ai_addr;
-    struct sockaddr_in returnserveraddr;
     void * addr = &(serveraddr->sin_addr);
 
     char ipstr[INET6_ADDRSTRLEN];
@@ -65,66 +158,19 @@ int main(int argc, char * argv[]) {
 
     cout << "-----UPD based FTP Program-----" << endl;
 
-    char packet[MAX_MSG_SIZE];
-
-    socklen_t serverlen = sizeof(struct sockaddr);
-
     // main client loop
-    const int commandSize = 1000; // bytes
+    const int commandSize = 1000;
     char command[commandSize];
-    struct udp_msg udp_cmd;
-
-    char response[MAX_MSG_SIZE];
-
+    
     while (1) {
         cout << endl << "> ";
         if (fgets(command, commandSize, stdin) != nullptr) {
-            
+
             // remove the trailing \n
-            size_t newlinePos = strcspn(command, "\n");
+            command[strcspn(command, "\n")] = '\0';
 
-            // Replace the newline character with a null terminator
-            if (newlinePos < strlen(command)) {
-                command[newlinePos] = '\0';
-            }
-
-            cout << command << " command" << endl;
-
-            // set the udp command
-            udp_cmd.sequence_number = 1;
-            strcpy(udp_cmd.data, command);
-
-            int bytesSent = 0, bytesReceived = 0;
-
-            // Copy the struct's data into a char buffer
-            serialize(udp_cmd, packet);
-
-            bytesSent = sendto(sockfd, packet, strlen(packet), 0, (struct sockaddr*)serveraddr, serverlen);
-
-            // TODO: do some better error handling
-            if (bytesSent == -1) {
-                cerr << "Error sending data: " << strerror(errno) << endl;
-                close(sockfd);
-                return 1;
-            }
-            cout << "Bytes sent : " << bytesSent << endl;
-
-            // Wait for the server to respond
-            memset(response, 0, sizeof(response));
-            bytesReceived = recvfrom(sockfd, response, MAX_MSG_SIZE, 0, (struct sockaddr*)&returnserveraddr, &serverlen);
-            if (bytesReceived == -1) {
-                cerr << "Error receiving data: " << strerror(errno) << endl;
-                close(sockfd);
-                return 1;
-            }
-            cout << "Bytes received : " << bytesReceived << endl;
-
-            cout << response << endl;
-
-            // break out if the response is bye
-            if (strcmp(response, "bye") == 0 && strcmp(command, "exit") == 0) {
-                break;
-            }
+            // Start the sending and receiving of data
+            startProcess(sockfd, command, (sockaddr *&)serveraddr);
         }
     }
     
