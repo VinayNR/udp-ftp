@@ -7,7 +7,7 @@
 
 using namespace std;
 
-void serialize(struct UDP_PACKET& packet, char * data) {
+void serialize(struct UDP_PACKET & packet, char * data) {
     
     // Sequence number serialization
     sprintf(data, "%d", packet.header.sequence_number);
@@ -35,12 +35,16 @@ void serialize(struct UDP_PACKET& packet, char * data) {
     strcat(data, packet.data);
 }
 
-void deserialize(char * data, struct UDP_PACKET& packet) {
+void deserialize(char * data, struct UDP_PACKET & packet) {
     // temporary copy
     char sequence_number[8];
     char is_last_token[2];
     char checksumStr[12];
     char packet_data[MAX_DATA_SIZE];
+
+    cout << "Inside deserialize" << endl;
+
+    cout << data << endl;
 
     sscanf(data, "%[^#]#%[^#]#%[^#]#%s", sequence_number, is_last_token, checksumStr, packet_data);
 
@@ -51,6 +55,13 @@ void deserialize(char * data, struct UDP_PACKET& packet) {
     packet.header.checksum = strtoul(checksumStr, &endptr, 10);
 
     strcpy(packet.data, packet_data);
+
+    cout << packet.data << endl;
+    cout << packet.header.is_last_packet << endl;
+    cout << packet.header.sequence_number << endl;
+    cout << packet.header.checksum << endl;
+
+    cout << "Finished deserialize" << endl;
 }
 
 void constructMessage(char *& data, UDP_MSG *& head) {

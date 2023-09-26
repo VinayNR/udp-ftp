@@ -36,10 +36,23 @@ int sendUDPPacket(int sockfd, UDP_PACKET & packet, const struct sockaddr * remot
 }
 
 int receiveUDPPacket(int sockfd, UDP_PACKET & packet, struct sockaddr * remoteAddress) {
+    cout << "Received UDP Packet" << endl;
+
     socklen_t serverlen = sizeof(struct sockaddr);
+
+    // create the packet buffer data that is filled by the network
+    char packet_data[MAX_MSG_SIZE];
+    memset(packet_data, 0, sizeof(packet_data));
     
     // Receive a packet
-    int bytesReceived = recvfrom(sockfd, packet.data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
+    int bytesReceived = recvfrom(sockfd, packet_data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
+
+    cout << "Bytes received: " << bytesReceived << endl;
+
+    // deserialize the packet data
+    deserialize(packet_data, packet);
+
+    cout << "Finished desserializing" << endl;
 
     return bytesReceived;
 }

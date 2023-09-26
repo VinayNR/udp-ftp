@@ -17,22 +17,6 @@
 using namespace std;
 
 
-int sendUPDMessage(int sockfd, char * packet, const struct sockaddr * remoteAddress) {
-    // Send a message using sendto command
-    socklen_t serverlen = sizeof(struct sockaddr);
-    int bytesSent = sendto(sockfd, packet, strlen(packet), 0, remoteAddress, serverlen);
-
-    return bytesSent;
-}
-
-int receiveUPDMessage(int sockfd, char * packet, struct sockaddr * remoteAddress) {
-    // Receive a message using recvfrom command
-    socklen_t serverlen = sizeof(struct sockaddr);
-    int bytesReceived = recvfrom(sockfd, packet, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
-
-    return bytesReceived;
-}
-
 int sendCommand(int sockfd, char * command, const struct sockaddr * remoteAddress) {
     // Create the message that will be serialized and sent over the network
     struct UDP_MSG message;
@@ -41,8 +25,11 @@ int sendCommand(int sockfd, char * command, const struct sockaddr * remoteAddres
     UDP_MSG * message_head = nullptr;
     constructMessage(command, message_head);
 
+    cout << "Done constructing message" << endl;
+
     // send the message
     int status = sendMessage(sockfd, message_head, remoteAddress);
+    cout << "Done sending message" << endl;
 
     if (status != 0) {
         cerr << "Error sending data: " << strerror(errno) << endl;
@@ -52,18 +39,26 @@ int sendCommand(int sockfd, char * command, const struct sockaddr * remoteAddres
     return 0;
 }
 
-int receiveResponse(int sockfd, char * packet, struct sockaddr * remoteAddress) {
-    // receive the message
-    int bytesReceived = receiveUPDMessage(sockfd, packet, remoteAddress);
+int receiveResponse(int sockfd, char * response, struct sockaddr * remoteAddress) {
+    // receive the message until last packet has arrived
+    char is_last_packet = 'N';
+    UDP_PACKET packet;
+    string packet_data;
+    cout << "Inside receive response" << endl;
+    do {
+        int bytesReceived = receiveUDPPacket(sockfd, packet, remoteAddress);
 
-    cout << "Bytes received: " << bytesReceived << endl;
+        cout << bytesReceived << " bytes received" << endl;
 
-    // error check for bytes sent
-    // do some error checking, retrying
-    if (bytesReceived == -1) {
-        cerr << "Error sending data: " << strerror(errno) << endl;
-        return 1;
-    }
+        packet_data += packet.data;
+        
+        is_last_packet = packet.header.is_last_packet;
+
+    } while (is_last_packet == 'N');
+
+    // copy the complete data into response
+    strcpy(response, packet_data.c_str());
+
     return 0;
 }
 
@@ -71,6 +66,8 @@ int processCommand(int sockfd, char * command, struct sockaddr *& remoteAddress)
 
     // send the command
     int status = sendCommand(sockfd, command, remoteAddress);
+
+    cout << "Done send command" << endl;
 
     if (status == 1) {
         cerr << "Error sending the command" << endl;
