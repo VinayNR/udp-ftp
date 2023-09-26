@@ -24,3 +24,9 @@ The client can send the following commands to the server:
 - `file_ops.cpp` - Includes primitive read, write, and delete file operations using the filestream C library.
 - `messages.cpp` - Defines the structures of a UDP Message and UDP Packet and contains common routines for serialization and deserialization.
 - `udp.cpp` - Provides basic send and receive primitives for UDP packets over the network.
+
+#### How to compile and run
+- Run make server on a remote client machine to get the server compiled
+- Run ./server <server_port> to start the server. Remember to use a non standard port for the server
+- Run make client on a separate folder where the client needs to run
+- Then run ./client <server_ip> <server_port> to start the client program
