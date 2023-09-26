@@ -30,7 +30,7 @@ void readCurrentDirectory(const char * directory, char *& contents) {
 
         // Copy the concatenated file names to a char buffer
         contents = new char[concatenatedFileNames.size() + 1];
-        memset(contents, 0, sizeof(contents));
+        // memset(contents, 0, sizeof(contents));
 
         strcpy(contents, concatenatedFileNames.c_str());
 
@@ -53,7 +53,7 @@ int getFile(const char * filename, char *& fileContents) {
     filestream.seekg(0, ios::beg);
 
     fileContents = new char[fileSize + 1];
-    memset(fileContents, 0, sizeof(fileContents));
+    // memset(fileContents, 0, sizeof(fileContents));
 
     if (!filestream.read(fileContents, fileSize)) {
         return 1;

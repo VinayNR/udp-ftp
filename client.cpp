@@ -12,6 +12,7 @@
 
 #include "message.h"
 #include "commands.h"
+#include "udp.h"
 
 using namespace std;
 
@@ -36,25 +37,14 @@ int sendCommand(int sockfd, char * command, const struct sockaddr * remoteAddres
     // Create the message that will be serialized and sent over the network
     struct UDP_MSG message;
 
-    // break into packets for transmission
-    UDP_MSG * head = nullptr;
-    constructMessage(command, head);
-
-    // send each packet
-    struct UDP_MSG * p;
-    while ()
-    char packet[MAX_MSG_SIZE];
-    memset(packet, 0, sizeof(packet));
-    serialize(msg, packet);
+    // break into packets for transmission and construct a linked message
+    UDP_MSG * message_head = nullptr;
+    constructMessage(command, message_head);
 
     // send the message
-    int bytesSent = sendUPDMessage(sockfd, packet, remoteAddress);
+    int status = sendMessage(sockfd, message_head, remoteAddress);
 
-    cout << "Bytes sent: " << bytesSent << endl;
-
-    // error check for bytes sent
-    // do some error checking, retrying
-    if (bytesSent == -1) {
+    if (status != 0) {
         cerr << "Error sending data: " << strerror(errno) << endl;
         return 1;
     }
@@ -77,7 +67,7 @@ int receiveResponse(int sockfd, char * packet, struct sockaddr * remoteAddress) 
     return 0;
 }
 
-int startProcess(int sockfd, char * command, struct sockaddr *& remoteAddress) {
+int processCommand(int sockfd, char * command, struct sockaddr *& remoteAddress) {
 
     // send the command
     int status = sendCommand(sockfd, command, remoteAddress);
@@ -99,6 +89,11 @@ int startProcess(int sockfd, char * command, struct sockaddr *& remoteAddress) {
     status = receiveResponse(sockfd, response, (struct sockaddr*)&returnserveraddr);
 
     cout << response << endl;
+
+    // exit
+    if (strcmp(response, "bye") == 0 && strcmp(command, "exit") == 0) {
+        return 2;
+    }
 
     if (status == 1) {
         cerr << "Error receving the message" << endl;
@@ -156,7 +151,7 @@ int main(int argc, char * argv[]) {
 
     cout << "Server address info obtained. IP: " << ipstr << endl << endl;
 
-    cout << "-----UPD based FTP Program-----" << endl;
+    cout << "-----UDP based FTP Program-----" << endl;
 
     // main client loop
     const int commandSize = 1000;
@@ -169,8 +164,13 @@ int main(int argc, char * argv[]) {
             // remove the trailing \n
             command[strcspn(command, "\n")] = '\0';
 
-            // Start the sending and receiving of data
-            startProcess(sockfd, command, (sockaddr *&)serveraddr);
+            // Process the command
+            int status = processCommand(sockfd, command, (sockaddr *&)serveraddr);
+
+            // status 2 is exit successfully
+            if (status == 2) {
+                break;
+            }
         }
     }
     

@@ -3,10 +3,10 @@
 
 #include "message.h"
 
-int sendMessage(int sockfd, UDP_MSG * message, const struct sockaddr * remoteAddress);
+int sendMessage(int, UDP_MSG *, const struct sockaddr *);
 
-int sendUDPPacket(int sockfd, UDP_PACKET * packet, const struct sockaddr * remoteAddress);
+int sendUDPPacket(int, UDP_PACKET &, const struct sockaddr *);
 
-int receiveUDPPacket(int sockfd, UDP_PACKET * packet, struct sockaddr * remoteAddress);
+int receiveUDPPacket(int, UDP_PACKET &, struct sockaddr *);
 
 #endif

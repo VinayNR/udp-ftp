@@ -4,12 +4,12 @@
 #include <cstdint>
 
 const int MAX_MSG_SIZE = 1024;
-const int MAX_DATA_SIZE = 1000;
+const int MAX_DATA_SIZE = 980; // adjust this
 
 struct UDP_HEADER {
     uint16_t sequence_number;
     uint32_t checksum;
-    bool is_last_packet;
+    char is_last_packet; // 'Y' or 'N'
 };
 
 struct UDP_PACKET {
@@ -24,8 +24,10 @@ struct UDP_MSG {
 
 void serialize(struct UDP_PACKET&, char *);
 
-void deserialize(char [], struct UDP_PACKET&);
+void deserialize(char *, struct UDP_PACKET&);
 
 void constructMessage(char *&, UDP_MSG *&);
+
+uint32_t calculateChecksum(const char*, int);
 
 #endif

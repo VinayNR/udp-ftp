@@ -19,18 +19,27 @@
 
 using namespace std;
 
-int sendUDPPacket(int sockfd, UDP_PACKET * packet, const struct sockaddr * remoteAddress) {
-    // Send a message using sendto command
+int sendUDPPacket(int sockfd, UDP_PACKET & packet, const struct sockaddr * remoteAddress) {
     socklen_t serverlen = sizeof(struct sockaddr);
-    int bytesSent = sendto(sockfd, packet->data, strlen(packet->data), 0, remoteAddress, serverlen);
+
+    // create the packet buffer data that is sent over the network
+    char packet_data[MAX_MSG_SIZE];
+    memset(packet_data, 0, sizeof(packet_data));
+
+    // serialize the data
+    serialize(packet, packet_data);
+
+    // Send the packet
+    int bytesSent = sendto(sockfd, packet_data, strlen(packet_data), 0, remoteAddress, serverlen);
 
     return bytesSent;
 }
 
-int receiveUDPPacket(int sockfd, UDP_PACKET * packet, struct sockaddr * remoteAddress) {
-    // Receive a message using recvfrom command
+int receiveUDPPacket(int sockfd, UDP_PACKET & packet, struct sockaddr * remoteAddress) {
     socklen_t serverlen = sizeof(struct sockaddr);
-    int bytesReceived = recvfrom(sockfd, packet->data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
+    
+    // Receive a packet
+    int bytesReceived = recvfrom(sockfd, packet.data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
 
     return bytesReceived;
 }
@@ -39,12 +48,15 @@ int receiveUDPPacket(int sockfd, UDP_PACKET * packet, struct sockaddr * remoteAd
 int sendMessage(int sockfd, UDP_MSG * message, const struct sockaddr * remoteAddress) {
     vector<int> failedPackets;
     UDP_MSG * p = message;
+
+    //iterate through the message head pointer to send all packets of the list
     while (p != nullptr) {
         // send the packet pointer by p
         int bytesSent = sendUDPPacket(sockfd, p->packet, remoteAddress);
         if (bytesSent == -1) {
             failedPackets.push_back(p->packet.header.sequence_number);
         }
+        p = p->next;
     }
 
     // retry failed packets

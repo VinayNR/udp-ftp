@@ -37,21 +37,21 @@ void getFileResponseHandler(int sockfd, const struct sockaddr * remoteAddress, c
     sendMessage(sockfd, head, remoteAddress);
 }
 
-void receiveFileLoop(char *& fileContents) {
+void receiveFileLoop(int sockfd, struct sockaddr * remoteAddress, char *& fileContents) {
     // loop until all packets are received from client
 }
 
-void putFileResponseHandler(const char * filename, char *& response) {
+void putFileResponseHandler(int sockfd, struct sockaddr * remoteAddress, const char * filename, char *& response) {
 
     char * fileContents = nullptr;
     // Wait for client to send file packets
-    receiveFileLoop(fileContents);
+    receiveFileLoop(sockfd, remoteAddress, fileContents);
 
     int status = putFile(filename, fileContents);
 
     // allocate memory for response
     response = new char[50];
-    memset(response, 0, sizeof(response));
+    // memset(response, 0, sizeof(response));
     if (status != 0) {
         strcpy(response, "could not write file to server");
         return;
@@ -109,7 +109,7 @@ void commandNotFoundHandler(char *& response) {
     strcpy(response, command_not_found);
 }
 
-void handleClientRequest(int sockfd, const struct sockaddr * remoteAddress, struct UDP_PACKET & clientMessage, char *& response) {
+void handleClientRequest(int sockfd, struct sockaddr * remoteAddress, struct UDP_PACKET & clientMessage, char *& response) {
 
     // parse the client request
     char * request = clientMessage.data;
@@ -139,11 +139,11 @@ void handleClientRequest(int sockfd, const struct sockaddr * remoteAddress, stru
 
         if (strncmp(request, get_command, strlen(get_command)) == 0) {
             cout << "Get Handler!" << endl;
-            getFileResponseHandler(sockfd, filename, remoteAddress);
+            getFileResponseHandler(sockfd, remoteAddress, filename, response);
         }
         else if (strncmp(request, put_command, strlen(put_command)) == 0) {
             cout << "Put Handler!" << endl;
-            putFileResponseHandler(filename, response);
+            putFileResponseHandler(sockfd, remoteAddress, filename, response);
         }
         else if (strncmp(request, delete_command, strlen(delete_command)) == 0) {
             cout << "Delete Handler!" << endl;
@@ -207,13 +207,15 @@ int main(int argc, char * argv[]) {
     cout << "Server listening..." << endl << endl;
 
     // main server loop
-    char packet[MAX_MSG_SIZE];
+    char packet_data[MAX_MSG_SIZE];
     
     int bytesSent = 0, bytesReceived = 0;
 
     while (1) {
-        memset(packet, 0, sizeof(packet));
-        bytesReceived = recvfrom(sockfd, packet, MAX_MSG_SIZE, 0, (struct sockaddr *) &clientaddr, &clientlen);
+
+        // process packets
+        memset(packet_data, 0, sizeof(packet_data));
+        bytesReceived = recvfrom(sockfd, packet_data, MAX_MSG_SIZE, 0, (struct sockaddr *) &clientaddr, &clientlen);
         cout << "Bytes received : " << bytesReceived << endl;
 
         if (bytesReceived == -1) {
@@ -222,15 +224,13 @@ int main(int argc, char * argv[]) {
         
         // deserialize the message
         struct UDP_PACKET clientMessage;
-        deserialize(packet, clientMessage);
+        deserialize(packet_data, clientMessage);
 
         cout << "Message from client " << inet_ntoa(clientaddr.sin_addr) << " : " << clientMessage.data << endl;
 
         // handle the message received and construct a response
         char * response = nullptr;
-        handleClientRequest(clientMessage, response);
-
-        // cout << response << endl << strlen(response) << endl;
+        handleClientRequest(sockfd, (sockaddr *)&clientaddr, clientMessage, response);
 
         // send the response back
         bytesSent = sendto(sockfd, response, strlen(response), 0, (struct sockaddr*) &clientaddr, clientlen);
