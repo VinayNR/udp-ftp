@@ -15,71 +15,71 @@
 
 #include "commands.h"
 #include "message.h"
-#include "udp.h"
 #include "file_ops.h"
+#include "utils.h"
 
 using namespace std;
 
 
-void getFileResponseHandler(int sockfd, const struct sockaddr * remoteAddress, const char * filename, char *& response) {
+void getFileResponseHandler(const char * filename, char *& response, char *& response_type) {
     int status = getFile(filename, response);
+    strcpy(response_type, DATA_FLAG);
 
+    cout << "Filename : " << filename << " : " << strlen(filename) << endl;
+
+    // check the status of get
     if (status != 0) {
-        strcpy(response, "could not get file");
-        return;
+        delete[] response;
+        response = new char[25];
+        response[0] = '\0';
+        strcat(response, "could not get file");
+        strcpy(response_type, COMMAND_FLAG);
     }
-
-    // break into packets for transmission
-    UDP_MSG * head = nullptr;
-    constructMessage(response, head);
-
-    // ready to send
-    sendMessage(sockfd, head, remoteAddress);
 }
 
-void receiveFileLoop(int sockfd, struct sockaddr * remoteAddress, char *& fileContents) {
-    // loop until all packets are received from client
-}
-
-void putFileResponseHandler(int sockfd, struct sockaddr * remoteAddress, const char * filename, char *& response) {
-
-    char * fileContents = nullptr;
-    // Wait for client to send file packets
-    receiveFileLoop(sockfd, remoteAddress, fileContents);
+void putFileResponseHandler(const char * filename, char * fileContents, char *& response, char *& response_type) {
 
     int status = putFile(filename, fileContents);
 
     // allocate memory for response
-    response = new char[50];
-    // memset(response, 0, sizeof(response));
+    response = new char[40];
+    response[0] = '\0';
+
+    // check the status of creation
     if (status != 0) {
-        strcpy(response, "could not write file to server");
+        strcat(response, "could not write file to server");
         return;
     }
-    strcpy(response, "copied file to server");
+    strcat(response, "copied file to server");
+    strcpy(response_type, COMMAND_FLAG);
 }
 
-void deleteFileResponseHandler(const char * filename, char *& response) {
+void deleteFileResponseHandler(const char * filename, char *& response, char *& response_type) {
     // delete the file
     int status = deleteFile(filename);
 
-    // set memory for the output parameter response
-    response = new char[50];
+    // allocate memory for response
+    response = new char[40];
+    response[0] = '\0';
 
     // check the status of deletion
     if (status != 0) {
-        strcpy(response, "could not delete file");
+        strcat(response, "could not delete file on server");
         return;
     }
-    strcpy(response, "file removed");
+    strcat(response, "file removed on server");
+    strcpy(response_type, COMMAND_FLAG);
 }
 
-void listFilesResponseHandler(char *& response) {
+void listFilesResponseHandler(char *& response, char *& response_type) {
     const char * currentDir = ".";
     readCurrentDirectory(currentDir, response);
+
+    // set response type
+    strcpy(response_type, COMMAND_FLAG);
 }
 
-void helpResponseHandler(char *& response) {
+void helpResponseHandler(char *& response, char *& response_type) {
     response = new char[100];
     strcpy(response, help_command);
     strcat(response, " ");
@@ -92,69 +92,81 @@ void helpResponseHandler(char *& response) {
     strcat(response, put_command);
     strcat(response, " ");
     strcat(response, delete_command);
+
+    // set response type
+    strcpy(response_type, COMMAND_FLAG);
 }
 
-void exitResponseHandler(char *& response) {
-    // send Bye
-    response = new char[10];
+void exitResponseHandler(char *& response, char *& response_type) {
+    // send bye
+    response = new char[5];
+    strcpy(response, "bye");
 
-    const char * bye_message = "bye";
-    strcpy(response, bye_message);
+    // set response type
+    strcpy(response_type, COMMAND_FLAG);
 }
 
-void commandNotFoundHandler(char *& response) {
+void commandNotFoundHandler(char *& response, char *& response_type) {
     // send command not found
     response = new char[20];
-    const char * command_not_found = "command not found";
-    strcpy(response, command_not_found);
+    strcpy(response, "command not found");
+
+    // set response type
+    strcpy(response_type, COMMAND_FLAG);
 }
 
-void handleClientRequest(int sockfd, struct sockaddr * remoteAddress, struct UDP_PACKET & clientMessage, char *& response) {
+void handleClientRequest(char * command, char * data, char *& response, char *& response_type) {
+    // allocate a byte for response_type
+    response_type = new char[1];
 
-    // parse the client request
-    char * request = clientMessage.data;
-
-    char * spacePos = strchr(request, ' ');
-
+    // check if the command had one or two words
+    char * spacePos = strchr(command, ' ');
     if (spacePos == nullptr) {
-        if (strcmp(request, help_command) == 0) {
+        if (strcmp(command, help_command) == 0) {
             cout << "Help Handler!" << endl;
-            helpResponseHandler(response);
+            helpResponseHandler(response, response_type);
         }
-        else if (strcmp(request, ls_command) == 0) {
+        else if (strcmp(command, ls_command) == 0) {
             cout << "LS Handler!" << endl;
-            listFilesResponseHandler(response);
+            listFilesResponseHandler(response, response_type);
         }
-        else if (strcmp(request, exit_command) == 0) {
+        else if (strcmp(command, exit_command) == 0) {
             cout << "Exit Handler!" << endl;
-            exitResponseHandler(response);
+            exitResponseHandler(response, response_type);
         }
         else {
-            commandNotFoundHandler(response);
+            strcpy(response_type, COMMAND_FLAG);
+            commandNotFoundHandler(response, response_type);
         }
     }
     else {
+        // if space is found, assume second part is the name of a file
         char * filename = new char[strlen(spacePos) + 1];
         strncpy(filename, spacePos+1, strlen(spacePos));
 
-        if (strncmp(request, get_command, strlen(get_command)) == 0) {
+        /*
+        for file operations, assume command is the name of file and
+        data is the content of file (for put operation)
+        */
+
+        if (strncmp(command, get_command, strlen(get_command)) == 0) {
             cout << "Get Handler!" << endl;
-            getFileResponseHandler(sockfd, remoteAddress, filename, response);
+            getFileResponseHandler(filename, response, response_type);
         }
-        else if (strncmp(request, put_command, strlen(put_command)) == 0) {
+        else if (strncmp(command, put_command, strlen(put_command)) == 0) {
             cout << "Put Handler!" << endl;
-            putFileResponseHandler(sockfd, remoteAddress, filename, response);
+            putFileResponseHandler(filename, data, response, response_type);
         }
-        else if (strncmp(request, delete_command, strlen(delete_command)) == 0) {
+        else if (strncmp(command, delete_command, strlen(delete_command)) == 0) {
             cout << "Delete Handler!" << endl;
-            deleteFileResponseHandler(filename, response);
+            deleteFileResponseHandler(filename, response, response_type);
         }
         else {
-            commandNotFoundHandler(response);
+            commandNotFoundHandler(response, response_type);
         }
     }
-    // response[strlen(response)] = '\0';
 }
+
 
 int main(int argc, char * argv[]) {
     // check if usage is corect
@@ -206,40 +218,42 @@ int main(int argc, char * argv[]) {
     socklen_t clientlen = sizeof(clientaddr);
     cout << "Server listening..." << endl << endl;
 
-    // main server loop
-    char packet_data[MAX_MSG_SIZE];
-    
-    int bytesSent = 0, bytesReceived = 0;
+    // command and data character buffers;
+    struct UDP_MSG * udp_message_request = nullptr, * udp_message_response = nullptr;
+    char * command = nullptr, * data = nullptr;
 
+    // response from server
+    char * response = nullptr, * response_type = nullptr;
+
+    // main server loop
     while (1) {
 
-        // process packets
-        memset(packet_data, 0, sizeof(packet_data));
-        bytesReceived = recvfrom(sockfd, packet_data, MAX_MSG_SIZE, 0, (struct sockaddr *) &clientaddr, &clientlen);
-        cout << "Bytes received : " << bytesReceived << endl;
+        // free the memory of the linked list
+        deleteMessage(udp_message_request);
+        deleteMessage(udp_message_response);
+        udp_message_request = nullptr;
+        udp_message_response = nullptr;
 
-        if (bytesReceived == -1) {
-            cerr << "Error receiving data: " << strerror(errno) << endl;
-        }
-        
-        // deserialize the message
-        struct UDP_PACKET clientMessage;
-        deserialize(packet_data, clientMessage);
+        // free up command data
+        delete[] command;
+        delete[] data;
+        command = nullptr;
+        data = nullptr;
 
-        cout << "Message from client " << inet_ntoa(clientaddr.sin_addr) << " : " << clientMessage.data << endl;
+        // receive a message (packets) on the socket, and populate the udp_message varaible
+        receiveMessage(sockfd, udp_message_request, (struct sockaddr *) &clientaddr);
 
-        // handle the message received and construct a response
-        char * response = nullptr;
-        handleClientRequest(sockfd, (sockaddr *)&clientaddr, clientMessage, response);
+        // construct command part and data part from udp_message
+        readMessage(udp_message_request, command, data);
 
-        // send the response back
-        bytesSent = sendto(sockfd, response, strlen(response), 0, (struct sockaddr*) &clientaddr, clientlen);
+        // handle the request of the client
+        handleClientRequest(command, data, response, response_type);
+       
+        // encapsulate the response into a UDP message
+        writeMessage(response, response_type, udp_message_response, NEW_MSG_MODE);
 
-        if (bytesSent == -1) {
-            cerr << "Error sending data: " << strerror(errno) << endl;
-        }
-
-        cout << "Bytes sent " << bytesSent << endl;
+        // send the message (packets) on the socket
+        sendMessage(sockfd, udp_message_response, (struct sockaddr *) &clientaddr);
     }
     
     return 0;

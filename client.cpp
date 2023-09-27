@@ -12,91 +12,26 @@
 
 #include "message.h"
 #include "commands.h"
-#include "udp.h"
+#include "file_ops.h"
+#include "utils.h"
 
 using namespace std;
 
 
-int sendCommand(int sockfd, char * command, const struct sockaddr * remoteAddress) {
-    // Create the message that will be serialized and sent over the network
-    struct UDP_MSG message;
+void printServerMessage(char * message) {
+    // null terminate it
+    cout << strlen(message) << endl;
+    cout << message << endl;
+}
 
-    // break into packets for transmission and construct a linked message
-    UDP_MSG * message_head = nullptr;
-    constructMessage(command, message_head);
-
-    cout << "Done constructing message" << endl;
-
-    // send the message
-    int status = sendMessage(sockfd, message_head, remoteAddress);
-    cout << "Done sending message" << endl;
-
+void handleServerData(char * data, char * filename) {
+    // save data from server locally
+    int status = putFile(filename, data);
     if (status != 0) {
-        cerr << "Error sending data: " << strerror(errno) << endl;
-        return 1;
+        cout << "failed to copy file" << endl;
+        return;
     }
-
-    return 0;
-}
-
-int receiveResponse(int sockfd, char * response, struct sockaddr * remoteAddress) {
-    // receive the message until last packet has arrived
-    char is_last_packet = 'N';
-    UDP_PACKET packet;
-    string packet_data;
-    cout << "Inside receive response" << endl;
-    do {
-        int bytesReceived = receiveUDPPacket(sockfd, packet, remoteAddress);
-
-        cout << bytesReceived << " bytes received" << endl;
-
-        packet_data += packet.data;
-        
-        is_last_packet = packet.header.is_last_packet;
-
-    } while (is_last_packet == 'N');
-
-    // copy the complete data into response
-    strcpy(response, packet_data.c_str());
-
-    return 0;
-}
-
-int processCommand(int sockfd, char * command, struct sockaddr *& remoteAddress) {
-
-    // send the command
-    int status = sendCommand(sockfd, command, remoteAddress);
-
-    cout << "Done send command" << endl;
-
-    if (status == 1) {
-        cerr << "Error sending the command" << endl;
-        return 1;
-    }
-
-    // Server return address
-    struct sockaddr_in returnserveraddr;
-    socklen_t serverlen = sizeof(struct sockaddr);
-
-    // response set to 0
-    char response[MAX_MSG_SIZE];
-    memset(response, 0, sizeof(response));
-
-    // Wait for the server to respond
-    status = receiveResponse(sockfd, response, (struct sockaddr*)&returnserveraddr);
-
-    cout << response << endl;
-
-    // exit
-    if (strcmp(response, "bye") == 0 && strcmp(command, "exit") == 0) {
-        return 2;
-    }
-
-    if (status == 1) {
-        cerr << "Error receving the message" << endl;
-        return 1;
-    }
-    return 0;
+    cout << "file received from server" << endl;
 }
 
 
@@ -140,8 +75,8 @@ int main(int argc, char * argv[]) {
         return 1;
     }
 
-    struct sockaddr_in *serveraddr = (struct sockaddr_in *)serverinfo->ai_addr;
-    void * addr = &(serveraddr->sin_addr);
+    struct sockaddr_in *remoteAddress = (struct sockaddr_in *)serverinfo->ai_addr;
+    void * addr = &(remoteAddress->sin_addr);
 
     char ipstr[INET6_ADDRSTRLEN];
     inet_ntop(serverinfo->ai_family, addr, ipstr, sizeof ipstr);
@@ -153,20 +88,134 @@ int main(int argc, char * argv[]) {
     // main client loop
     const int commandSize = 1000;
     char command[commandSize];
+
+    UDP_MSG * udp_message_request = nullptr, * udp_message_response = nullptr;
+
+    char * server_response = nullptr, * server_data = nullptr;
+
+    struct sockaddr * receivingRemoteAddress;
     
     while (1) {
         cout << endl << "> ";
+        // get the command from user
         if (fgets(command, commandSize, stdin) != nullptr) {
 
             // remove the trailing \n
             command[strcspn(command, "\n")] = '\0';
 
-            // Process the command
-            int status = processCommand(sockfd, command, (sockaddr *&)serveraddr);
+            // free the UDP message pointers
+            deleteMessage(udp_message_request);
+            deleteMessage(udp_message_response);
+            udp_message_request = nullptr;
+            udp_message_response = nullptr;
 
-            // status 2 is exit successfully
-            if (status == 2) {
-                break;
+            // free the server message pointers
+            delete[] server_response;
+            delete[] server_data;
+            server_response = nullptr;
+            server_data = nullptr;
+
+            char * spacePos = strchr(command, ' ');
+
+            if (spacePos == nullptr) {
+                if (strcmp(command, help_command) == 0
+                || strcmp(command, ls_command) == 0
+                || strcmp(command, exit_command) == 0) {
+                    // construct a message
+                    writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+
+                    // send the message request over the network
+                    sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
+
+                    // wait for the response from server
+                    receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+
+                    // construct command part and data part from udp_message
+                    readMessage(udp_message_response, server_response, server_data);
+
+                    // handle the response from server
+                    printServerMessage(server_response);
+                }
+            }
+            else {
+                // if space is found, assume second part is the name of a file
+                char * filename = new char[strlen(spacePos) + 1];
+                strncpy(filename, spacePos+1, strlen(spacePos));
+
+                // delete command
+                if (strncmp(command, delete_command, strlen(delete_command)) == 0) {
+                    // construct a message
+                    writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+
+                    // send the message request over the network
+                    sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
+
+                    // wait for the response from server
+                    receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+
+                    // construct command part and data part from udp_message
+                    readMessage(udp_message_response, server_response, server_data);
+
+                    // handle the response from server
+                    printServerMessage(server_response);
+                }
+
+                // get command
+                else if (strncmp(command, get_command, strlen(get_command)) == 0) {
+                    // construct a message
+                    writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+
+                    // send the message request over the network
+                    sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
+
+                    // wait for the response from server
+                    receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+
+                    // construct command part and data part from udp_message
+                    readMessage(udp_message_response, server_response, server_data);
+
+                    // handle the response from server
+                    if (server_response != nullptr) {
+                        printServerMessage(server_response);
+                    }
+                    if (server_data != nullptr) {
+                        handleServerData(server_data, filename);
+                    }
+                }
+                
+                // put command
+                else if (strncmp(command, put_command, strlen(put_command)) == 0) {
+                    // construct the command message
+                    writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+
+                    // read the file from local directory
+                    char * fileContents = nullptr;
+                    int status = getFile(filename, fileContents);
+                    if (status != 0) {
+                        cout << "error reading file locally" << endl;
+                        continue;
+                    }
+
+                    // construct the data message and append it
+                    writeMessage(fileContents, DATA_FLAG, udp_message_request, APPEND_MSG_MODE);
+
+                    // send the messages request over the network
+                    sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
+
+                    // wait for the response from server
+                    receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+
+                    // construct command part and data part from udp_message
+                    readMessage(udp_message_response, server_response, server_data);
+
+                    // handle the response from server
+                    if (server_response != nullptr) {
+                        printServerMessage(server_response);
+                    }
+                    if (server_data != nullptr) {
+                        handleServerData(server_data, filename);
+                    }
+                }
             }
         }
     }

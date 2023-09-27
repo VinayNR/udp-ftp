@@ -14,8 +14,4 @@ extern const char * get_command;
 extern const char * put_command;
 extern const char * delete_command;
 
-const std::vector<std::string>& getListOfCommands();
-
-bool isCommandAllowed(char * command);
-
 #endif

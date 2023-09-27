@@ -1,16 +1,17 @@
 #include <iostream>
-#include <cstdlib> // for std::strtoul
-#include <cstring> // for strlen
 
 using namespace std;
 
 int main() {
-    char x = 'A';
+    char * a;
+    a = new char[3];
 
-    do {
-        cout << "Hi" << endl;
-        cin >> x;
-    } while (x == 'A');
+    strcpy(a, "ls");
+    a[strlen(a)] = '\0';
 
+    cout << a << " : " << strlen(a) << endl;
+
+    
+    
     return 0;
 }

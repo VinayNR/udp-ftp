@@ -2,32 +2,52 @@
 #define MESSAGE_H
 
 #include <cstdint>
+#include <vector>
 
-const int MAX_MSG_SIZE = 1024;
-const int MAX_DATA_SIZE = 980; // adjust this
+extern const int MAX_MSG_SIZE;
+extern const int MAX_DATA_SIZE; // adjust this
+
+extern const char * COMMAND_FLAG;
+extern const char * DATA_FLAG;
+
+extern const char * APPEND_MSG_MODE;
+extern const char * NEW_MSG_MODE;
 
 struct UDP_HEADER {
     uint16_t sequence_number;
     uint32_t checksum;
+    char flag; // command or data
     char is_last_packet; // 'Y' or 'N'
 };
 
 struct UDP_PACKET {
     UDP_HEADER header; // header
-    char data[MAX_DATA_SIZE]; // the actual data
+    char data[980]; // the actual data
 };
 
 struct UDP_MSG {
-    UDP_PACKET packet; // header
+    UDP_PACKET packet;
     UDP_MSG * next;
 };
 
-void serialize(struct UDP_PACKET&, char *);
+// Packet Operations
+int serialize(struct UDP_PACKET *, char *);
 
-void deserialize(char *, struct UDP_PACKET&);
+int deserialize(char *, struct UDP_PACKET *&);
 
-void constructMessage(char *&, UDP_MSG *&);
+int sendUDPPacket(int, struct UDP_PACKET *, const struct sockaddr *);
 
-uint32_t calculateChecksum(const char*, int);
+int receiveUDPPacket(int, struct UDP_PACKET *&, struct sockaddr *);
+
+// Message Operations
+void writeMessage(char *, const char *, struct UDP_MSG *&, const char *);
+
+void readMessage(const struct UDP_MSG *, char *&, char *&);
+
+void deleteMessage(struct UDP_MSG *);
+
+int sendMessage(int, struct UDP_MSG *, const struct sockaddr *);
+
+int receiveMessage(int, struct UDP_MSG *&, struct sockaddr *);
 
 #endif

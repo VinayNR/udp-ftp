@@ -53,14 +53,14 @@ int getFile(const char * filename, char *& fileContents) {
     filestream.seekg(0, ios::beg);
 
     fileContents = new char[fileSize + 1];
-    // memset(fileContents, 0, sizeof(fileContents));
+    memset(fileContents, 0, fileSize + 1);
 
     if (!filestream.read(fileContents, fileSize)) {
         return 1;
     }
 
     // Null-terminate the string
-    fileContents[fileSize] = '\0';
+    // fileContents[fileSize] = '\0';
 
     filestream.close();
     return 0;
