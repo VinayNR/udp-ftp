@@ -125,6 +125,8 @@ int main(int argc, char * argv[]) {
                     writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
                     // send the message request over the network
+                    cout << "On client message: " << udp_message_request->packet.data << endl;
+
                     sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
 
                     // wait for the response from server

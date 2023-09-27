@@ -187,7 +187,7 @@ int main(int argc, char * argv[]) {
     hints.ai_flags = AI_PASSIVE; // use this to get the own address
 
     // get the address info
-    if ((status = getaddrinfo("localhost", argv[1], &hints, &addressinfo)) != 0) {
+    if ((status = getaddrinfo(NULL, argv[1], &hints, &addressinfo)) != 0) {
         cout << "Error with get addr info: " << gai_strerror(status) << endl;
         return 1;
     }
@@ -206,6 +206,14 @@ int main(int argc, char * argv[]) {
         cout << "Error creating a socket" << endl;
         return 1;
     }
+
+    /* setsockopt: Handy debugging trick that lets 
+   * us rerun the server immediately after we kill it; 
+   * otherwise we have to wait about 20 secs. 
+   * Eliminates "ERROR on binding: Address already in use" error. 
+   */
+    int optval = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
 
     cout << "Socket created: " << sockfd << endl;
 

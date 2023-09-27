@@ -15,7 +15,8 @@ uint32_t calculateChecksum(const char* buffer, int length) {
     return checksum;
 }
 
-vector<int> getAllDelimiterPos(char * data, char delimiter) {
+
+vector<int> getAllDelimiterPos(const char * data, char delimiter) {
     vector<int> positions;
 
     for (int i = 0; data[i] != '\0'; i++) {
