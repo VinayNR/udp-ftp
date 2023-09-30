@@ -136,7 +136,7 @@ int main(int argc, char * argv[]) {
                     readMessage(udp_message_response, server_response, server_data);
 
                     // handle the response from server
-                    // printServerMessage(server_response);
+                    printServerMessage(server_response);
                 }
             }
             // else {
