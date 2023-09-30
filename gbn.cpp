@@ -10,7 +10,7 @@ using namespace std;
 const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const struct sockaddr *remoteAddress) {
     // send frames of packets starting from the start pointer on the message
     // send upto GBN_N packets as defined in this file
-    // cout << "In send window" << endl;
+    cout << "In send window" << endl;
     const struct UDP_MSG *current = start;
 
     int status;
@@ -28,7 +28,7 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
 
         // increment counter variables
         ++packets_sent;
-        // cout << "Packets sent: " << packets_sent << endl;
+        cout << "Packets sent: " << packets_sent << endl;
         current = current->next;
     }
 
@@ -143,7 +143,7 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
 }
 
 void sendAck(uint32_t last_received_sequence_number, int sockfd, const struct sockaddr *remoteAddress) {
-    // cout << "In send ACK (with ack number): " << last_received_sequence_number << endl;
+    cout << "In send ACK (with ack number): " << last_received_sequence_number << endl;
     // send a udp packet with the ack number in the packet's sequence number field
     // the ack is always a single packet and not a message
 
@@ -172,7 +172,7 @@ void sendAck(uint32_t last_received_sequence_number, int sockfd, const struct so
 }
 
 int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
-    // cout << "In receive ACK" << endl;
+    cout << "In receive ACK" << endl;
     // variable to hold the sender's address
     struct sockaddr *remoteAddress = nullptr;
 
@@ -186,7 +186,7 @@ int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
     while (true) {
         // wait for acknowledgement from the server
         status = receiveUDPPacket(sockfd, ack_packet, remoteAddress);
-        // cout << "Status received for ACK: " << status << endl;
+        cout << "Status received for ACK: " << status << endl;
         if (status == -1) {
             // reset socket timeout to 0, indicating no timeout
             setSocketTimeout(sockfd, 0);

@@ -60,7 +60,7 @@ int serialize(const struct UDP_PACKET * packet, char *& packet_buffer) {
 
     // Checksum
     // Convert the uint32_t checksum to a string
-    std::string checksumStr = to_string(packet->header.checksum);
+    string checksumStr = to_string(packet->header.checksum);
 
     // Concatenate the checksum string with the data
     strcat(packet_buffer, checksumStr.c_str());
@@ -70,7 +70,7 @@ int serialize(const struct UDP_PACKET * packet, char *& packet_buffer) {
 
     // Data
     strcat(packet_buffer, packet->data);
-    // cout << "Copied data in serialization: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+    cout << "Copied data in serialization: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
 
     return 0;
 }
@@ -185,7 +185,7 @@ int writeMessage(const char *data, const char *flag, struct UDP_MSG *& message_h
 }
 
 void readMessage(const struct UDP_MSG * message, char *& command, char *& data) {
-    // cout << "In read message" << endl;
+    cout << "In read message" << endl;
     const struct UDP_MSG * ptr = message;
 
     int command_size = 0, data_size = 0;
@@ -234,7 +234,7 @@ void deleteMessage(struct UDP_MSG * message_head) {
 }
 
 int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct sockaddr * remoteAddress) {
-    // cout << "In send UDP packet" << endl;
+    cout << "In send UDP packet" << endl;
     socklen_t serverlen = sizeof(struct sockaddr);
 
     // create the packet buffer data that is sent over the network
@@ -249,13 +249,13 @@ int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct soc
     }
 
     // Send the packet
-    // cout << "Sending data: " << packet_data << " : " << strlen(packet_data) << endl;
+    cout << "Sending data: " << packet_data << " : " << strlen(packet_data) << endl;
     int bytesSent = sendto(sockfd, packet_data, strlen(packet_data), 0, remoteAddress, serverlen);
 
     if (bytesSent == -1) {
         cerr << "Error sending data: " << strerror(errno) << endl;
     } else {
-        // cout << "Bytes sent: " << bytesSent << endl;
+        cout << "Bytes sent: " << bytesSent << endl;
     }
 
 
@@ -265,7 +265,7 @@ int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct soc
 }
 
 int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *remoteAddress) {
-    // cout << "In receive UDP Packet" << endl;
+    cout << "In receive UDP Packet" << endl;
     socklen_t serverlen = sizeof(struct sockaddr);
 
     // create the packet buffer data that is filled by the network
@@ -275,8 +275,8 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
     // Receive a packet
     int bytesReceived = recvfrom(sockfd, packet_data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
 
-    // cout << "Received data: " << packet_data << " : " << strlen(packet_data) << endl;
-    // cout << "Bytes received: " << bytesReceived << endl;
+    cout << "Received data: " << packet_data << " : " << strlen(packet_data) << endl;
+    cout << "Bytes received: " << bytesReceived << endl;
 
     // deserialize the packet data
     if (deserialize(packet_data, packet) != 0) {
@@ -292,7 +292,7 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
 
 // All send message operations are successful, upon the last ACK from the receiver
 int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequence_number, const struct sockaddr *remoteAddress) {
-    // cout << "In send message" << endl;
+    cout << "In send message" << endl;
     const struct UDP_MSG *current_window_start = message, *next_window_start = nullptr;
     int ack_status;
     uint32_t expected_ack_number;
@@ -320,7 +320,7 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
 }
 
 int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *remoteAddress) {
-    // cout << "In receive message" << endl;
+    cout << "In receive message" << endl;
     // pointers for message and window
     struct UDP_MSG *message_tail = nullptr, *window_start = nullptr, *window_end = nullptr;
 
