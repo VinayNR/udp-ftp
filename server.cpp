@@ -31,7 +31,7 @@ void getFileResponseHandler(const char * filename, char *& response, char *& res
     if (status != 0) {
         delete[] response;
         response = new char[25];
-        response[0] = '\0';
+        memset(response, 0, 25);
         strcat(response, "could not get file");
         strcpy(response_type, COMMAND_FLAG);
     }
@@ -43,7 +43,7 @@ void putFileResponseHandler(const char * filename, char * fileContents, char *& 
 
     // allocate memory for response
     response = new char[40];
-    response[0] = '\0';
+    memset(response, 0, 40);
 
     // check the status of creation
     if (status != 0) {
@@ -60,7 +60,7 @@ void deleteFileResponseHandler(const char * filename, char *& response, char *& 
 
     // allocate memory for response
     response = new char[40];
-    response[0] = '\0';
+    memset(response, 0, 40);
 
     // check the status of deletion
     if (status != 0) {
@@ -123,15 +123,15 @@ void handleClientRequest(char * command, char * data, char *& response, char *& 
     char * spacePos = strchr(command, ' ');
     if (spacePos == nullptr) {
         if (strcmp(command, help_command) == 0) {
-            cout << "Help Handler!" << endl;
+            // cout << "Help Handler!" << endl;
             helpResponseHandler(response, response_type);
         }
         else if (strcmp(command, ls_command) == 0) {
-            cout << "LS Handler!" << endl;
+            // cout << "LS Handler!" << endl;
             listFilesResponseHandler(response, response_type);
         }
         else if (strcmp(command, exit_command) == 0) {
-            cout << "Exit Handler!" << endl;
+            // cout << "Exit Handler!" << endl;
             exitResponseHandler(response, response_type);
         }
         else {

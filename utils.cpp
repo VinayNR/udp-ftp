@@ -1,19 +1,9 @@
 #include "utils.h"
 
 #include <vector>
+#include <iostream>
 
 using namespace std;
-
-// Function to calculate XOR checksum
-uint32_t calculateChecksum(const char* buffer, int length) {
-    uint32_t checksum = 0;
-    
-    for (int i = 0; i < length; i++) {
-        checksum ^= buffer[i];
-    }
-    
-    return checksum;
-}
 
 uint32_t djb2_hash(const char* buffer, int length) {
     uint32_t hash = 5381; // Initial hash value
@@ -23,6 +13,16 @@ uint32_t djb2_hash(const char* buffer, int length) {
     }
     
     return hash;
+}
+
+bool validateChecksum(const char * packet_data, uint32_t checksum) {
+    // compute the checksum of the packet
+    if (djb2_hash(packet_data, strlen(packet_data)) != checksum) {
+        // discard the packet
+        cout << "Discarded packet because checksum failed" << endl;
+        return false;
+    }
+    return true;
 }
 
 vector<int> getAllDelimiterPos(const char * data, char delimiter) {

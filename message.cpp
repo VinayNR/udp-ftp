@@ -38,7 +38,7 @@ int serialize(const struct UDP_PACKET * packet, char *& packet_buffer) {
     
     // allocate memory for the packet_buffer
     packet_buffer = new char[MAX_MSG_SIZE];
-    packet_buffer[0] = '\0';
+    memset(packet_buffer, 0, MAX_MSG_SIZE);
 
     // Sequence number serialization
     sprintf(packet_buffer, "%d", packet->header.sequence_number);
@@ -70,18 +70,21 @@ int serialize(const struct UDP_PACKET * packet, char *& packet_buffer) {
 
     // Data
     strcat(packet_buffer, packet->data);
+    // cout << "Copied data in serialization: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
 
     return 0;
 }
 
 int deserialize(const char * packet_buffer, struct UDP_PACKET *& packet) {
     // temporary copy
-    char sequence_number[8];
+    char *sequence_number = new char[12];
+    memset(sequence_number, 0, 12);
     char flag[2];
     char is_last_token[2];
-    char checksumStr[12];
+    char *checksumStr = new char[12];
+    memset(checksumStr, 0, 12);
     char * packet_data = new char[MAX_DATA_SIZE];
-    packet_data[0] = '\0';
+    memset(packet_data, 0, MAX_DATA_SIZE);
 
     vector<int> allDelimiterPos = getAllDelimiterPos(packet_buffer, '#');
 
@@ -89,8 +92,6 @@ int deserialize(const char * packet_buffer, struct UDP_PACKET *& packet) {
     if (allDelimiterPos.size() != 4) {
         return 1;
     }
-
-    cout << "Size of packet_buffer: " << strlen(packet_buffer) << endl;
 
     strncpy(sequence_number, packet_buffer, allDelimiterPos[0]);
     strncpy(flag, packet_buffer + allDelimiterPos[0]+1, allDelimiterPos[1] - allDelimiterPos[0] - 1);
@@ -110,17 +111,17 @@ int deserialize(const char * packet_buffer, struct UDP_PACKET *& packet) {
     packet->header.checksum = strtoul(checksumStr, &endptr, 10);
 
     strcpy(packet->data, packet_data);
-    // cout << "Obtained packet size: " << strlen(packet_data) << endl;
-    // cout << "Packet Size (in deserialize): " << strlen(packet->data) << endl;
 
     // clean up pointers
-    delete[] packet_data;
-    packet_data = nullptr;
+    deleteAndNullifyPointer(sequence_number, true);
+    deleteAndNullifyPointer(checksumStr, true);
+    deleteAndNullifyPointer(packet_data, true);
 
     return 0;
 }
 
 int writeMessage(const char *data, const char *flag, struct UDP_MSG *& message_head, const char *msg_write_mode) {
+    // cout << "In write message" << endl;
     UDP_MSG *message_tail;
     int packet_sequence_number = 1;
     int dataSize = strlen(data);
@@ -161,11 +162,9 @@ int writeMessage(const char *data, const char *flag, struct UDP_MSG *& message_h
 
         // copy data
         memcpy(udp_msg->packet.data, data + i, chunkSize);
-        // udp_msg->packet.data[chunkSize] = '\0';
 
         // calculate checksum and add to header
         udp_msg->packet.header.checksum = djb2_hash(udp_msg->packet.data, chunkSize);
-        cout << "Checksum: " << udp_msg->packet.header.checksum << endl;
 
         udp_msg->next = nullptr;
 
@@ -186,7 +185,7 @@ int writeMessage(const char *data, const char *flag, struct UDP_MSG *& message_h
 }
 
 void readMessage(const struct UDP_MSG * message, char *& command, char *& data) {
-    cout << "In read message" << endl;
+    // cout << "In read message" << endl;
     const struct UDP_MSG * ptr = message;
 
     int command_size = 0, data_size = 0;
@@ -194,7 +193,6 @@ void readMessage(const struct UDP_MSG * message, char *& command, char *& data) 
     // calculate total size of the char buffers needed
     while (ptr != nullptr) {
         if (ptr->packet.header.flag == *COMMAND_FLAG) {
-            // cout << "Packet size: " << strlen(ptr->packet.data) << endl;
             command_size += strlen(ptr->packet.data);
         }
         else if (ptr->packet.header.flag == *DATA_FLAG) {
@@ -204,14 +202,13 @@ void readMessage(const struct UDP_MSG * message, char *& command, char *& data) 
     }
 
     // reset and begin to copy
-    // cout << "Command size: " << command_size << endl;
     if (command_size > 0) {
         command = new char[command_size + 1];
-        command[0] = '\0';
+        memset(command, 0, command_size + 1);
     }
     if (data_size > 0) {
         data = new char[data_size + 1];
-        data[0] = '\0';
+        memset(command, 0, data_size + 1);
     }
     
     ptr = message;
@@ -237,23 +234,30 @@ void deleteMessage(struct UDP_MSG * message_head) {
 }
 
 int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct sockaddr * remoteAddress) {
+    // cout << "In send UDP packet" << endl;
     socklen_t serverlen = sizeof(struct sockaddr);
 
     // create the packet buffer data that is sent over the network
     char * packet_data = nullptr;
 
     // serialize the data
-    // cout << "In send udp packet: " << strlen(packet->data) << endl;
     int status = serialize(packet, packet_data);
 
     if (status != 0) {
+        cout << "Serialization failed during send udp packet" << endl;
         return -1;
     }
 
     // Send the packet
-    cout << "Sending data: " << packet_data << " : " << strlen(packet_data) << endl;
+    // cout << "Sending data: " << packet_data << " : " << strlen(packet_data) << endl;
     int bytesSent = sendto(sockfd, packet_data, strlen(packet_data), 0, remoteAddress, serverlen);
-    cout << "Bytes sent: " << bytesSent<< endl;
+
+    if (bytesSent == -1) {
+        cerr << "Error sending data: " << strerror(errno) << endl;
+    } else {
+        // cout << "Bytes sent: " << bytesSent << endl;
+    }
+
 
     // clean up pointers
     deleteAndNullifyPointer(packet_data, true);
@@ -261,30 +265,22 @@ int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct soc
 }
 
 int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *remoteAddress) {
-    cout << "In receive UDP Packet" << endl;
+    // cout << "In receive UDP Packet" << endl;
     socklen_t serverlen = sizeof(struct sockaddr);
 
     // create the packet buffer data that is filled by the network
     char *packet_data = new char[MAX_MSG_SIZE];
-    packet_data[0] = '\0';
+    memset(packet_data, 0, MAX_MSG_SIZE);
     
     // Receive a packet
     int bytesReceived = recvfrom(sockfd, packet_data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
 
-    cout << "Received data: " << packet_data << " : " << strlen(packet_data) << endl;
-    cout << "Bytes received: " << bytesReceived << endl;
+    // cout << "Received data: " << packet_data << " : " << strlen(packet_data) << endl;
+    // cout << "Bytes received: " << bytesReceived << endl;
 
     // deserialize the packet data
     if (deserialize(packet_data, packet) != 0) {
         // failure to deserialize the packet results in an error
-        deleteAndNullifyPointer(packet_data, true);
-        return -1;
-    }
-
-    // compute the checksum of the packet
-    if (calculateChecksum(packet->data, strlen(packet->data)) != packet->header.checksum) {
-        // discard the packet
-        cout << "Discarded packet because checksum failed" << endl;
         deleteAndNullifyPointer(packet_data, true);
         return -1;
     }
@@ -296,7 +292,7 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
 
 // All send message operations are successful, upon the last ACK from the receiver
 int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequence_number, const struct sockaddr *remoteAddress) {
-
+    // cout << "In send message" << endl;
     const struct UDP_MSG *current_window_start = message, *next_window_start = nullptr;
     int ack_status;
     uint32_t expected_ack_number;
@@ -324,7 +320,7 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
 }
 
 int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *remoteAddress) {
-    cout << "In receive message" << endl;
+    // cout << "In receive message" << endl;
     // pointers for message and window
     struct UDP_MSG *message_tail = nullptr, *window_start = nullptr, *window_end = nullptr;
 

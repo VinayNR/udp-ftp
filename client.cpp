@@ -91,7 +91,7 @@ int main(int argc, char * argv[]) {
 
     char * server_response = nullptr, * server_data = nullptr;
 
-    struct sockaddr * receivingRemoteAddress;
+    struct sockaddr_in receivingRemoteAddress;
     uint32_t last_sequence_number;
     
     while (1) {
@@ -108,8 +108,6 @@ int main(int argc, char * argv[]) {
             udp_message_request = nullptr;
             udp_message_response = nullptr;
 
-            receivingRemoteAddress = nullptr;
-
             // free the server message pointers
             delete[] server_response;
             delete[] server_data;
@@ -125,14 +123,14 @@ int main(int argc, char * argv[]) {
                     // construct a message
                     last_sequence_number = writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
-                    cout << "Message: " << udp_message_request->packet.data << endl;
-                    cout << "Last Seq number: " << last_sequence_number << endl;
+                    // cout << "Message: " << udp_message_request->packet.data << endl;
+                    // cout << "Last Seq number: " << last_sequence_number << endl;
 
                     // send the message
                     sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *)remoteAddress);
 
                     // wait for the response from server
-                    receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+                    receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
                     // construct command part and data part from udp_message
                     readMessage(udp_message_response, server_response, server_data);
