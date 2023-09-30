@@ -221,10 +221,10 @@ int main(int argc, char * argv[]) {
     bind(sockfd, addressinfo->ai_addr, addressinfo->ai_addrlen);
 
     cout << "Server socket bind complete" << endl;
-
-    struct sockaddr_in clientaddr;
-    socklen_t clientlen = sizeof(clientaddr);
     cout << "Server listening..." << endl << endl;
+
+    // client's remote address
+    struct sockaddr_in remoteAddress;
 
     // command and data character buffers;
     struct UDP_MSG * udp_message_request = nullptr, * udp_message_response = nullptr;
@@ -232,6 +232,7 @@ int main(int argc, char * argv[]) {
 
     // response from server
     char * response = nullptr, * response_type = nullptr;
+    int last_sequence_number;
 
     // main server loop
     while (1) {
@@ -249,7 +250,7 @@ int main(int argc, char * argv[]) {
         data = nullptr;
 
         // receive a message (packets) on the socket, and populate the udp_message varaible
-        receiveMessage(sockfd, udp_message_request, (struct sockaddr *) &clientaddr);
+        receiveMessage(sockfd, udp_message_request, (struct sockaddr *) &remoteAddress);
 
         // construct command part and data part from udp_message
         readMessage(udp_message_request, command, data);
@@ -258,10 +259,10 @@ int main(int argc, char * argv[]) {
         handleClientRequest(command, data, response, response_type);
        
         // encapsulate the response into a UDP message
-        writeMessage(response, response_type, udp_message_response, NEW_MSG_MODE);
+        last_sequence_number = writeMessage(response, response_type, udp_message_response, NEW_MSG_MODE);
 
         // send the message (packets) on the socket
-        sendMessage(sockfd, udp_message_response, (struct sockaddr *) &clientaddr);
+        sendMessage(sockfd, udp_message_response, last_sequence_number, (struct sockaddr *) &remoteAddress);
     }
     
     return 0;

@@ -15,7 +15,7 @@ extern const char * APPEND_MSG_MODE;
 extern const char * NEW_MSG_MODE;
 
 struct UDP_HEADER {
-    uint16_t sequence_number;
+    uint32_t sequence_number;
     uint32_t checksum;
     char flag; // command or data or ack
     char is_last_packet; // 'Y' or 'N'
@@ -38,16 +38,16 @@ int deserialize(const char*, struct UDP_PACKET *&);
 
 int sendUDPPacket(int, const struct UDP_PACKET*, const struct sockaddr*);
 
-int receiveUDPPacket(int, struct UDP_PACKET *&, struct sockaddr*, int);
+int receiveUDPPacket(int, struct UDP_PACKET *&, struct sockaddr*);
 
 // Message Operations
-void writeMessage(char*, const char*, struct UDP_MSG *&, const char*);
+int writeMessage(const char*, const char*, struct UDP_MSG *&, const char*);
 
 void readMessage(const struct UDP_MSG*, char *&, char *&);
 
 void deleteMessage(struct UDP_MSG*);
 
-int sendMessage(int, const struct UDP_MSG*, uint16_t, const struct sockaddr*);
+int sendMessage(int, const struct UDP_MSG*, uint32_t, const struct sockaddr*);
 
 int receiveMessage(int, struct UDP_MSG *&, struct sockaddr*);
 

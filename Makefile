@@ -2,8 +2,8 @@ CC = g++  # Compiler
 CFLAGS = -Wall  # Compiler flags
 
 # Source files for the client and server
-CLIENT_SRC = client.cpp commands.cpp file_ops.cpp message.cpp udp.cpp
-SERVER_SRC = server.cpp commands.cpp file_ops.cpp message.cpp udp.cpp
+CLIENT_SRC = client.cpp commands.cpp gbn.cpp sockutils.cpp message.cpp file_ops.cpp utils.cpp
+SERVER_SRC = server.cpp commands.cpp gbn.cpp sockutils.cpp message.cpp file_ops.cpp utils.cpp
 
 # Output binary names
 CLIENT_OUT = client

@@ -110,8 +110,8 @@ int deserialize(const char * packet_buffer, struct UDP_PACKET *& packet) {
     packet->header.checksum = strtoul(checksumStr, &endptr, 10);
 
     strcpy(packet->data, packet_data);
-    cout << "Obtained packet size: " << strlen(packet_data) << endl;
-    cout << "Packet Size (in deserialize): " << strlen(packet->data) << endl;
+    // cout << "Obtained packet size: " << strlen(packet_data) << endl;
+    // cout << "Packet Size (in deserialize): " << strlen(packet->data) << endl;
 
     // clean up pointers
     delete[] packet_data;
@@ -120,8 +120,8 @@ int deserialize(const char * packet_buffer, struct UDP_PACKET *& packet) {
     return 0;
 }
 
-void writeMessage(char * data, const char * flag, UDP_MSG *& message_head, const char * msg_write_mode) {
-    UDP_MSG * message_tail;
+int writeMessage(const char *data, const char *flag, struct UDP_MSG *& message_head, const char *msg_write_mode) {
+    UDP_MSG *message_tail;
     int packet_sequence_number = 1;
     int dataSize = strlen(data);
 
@@ -133,9 +133,9 @@ void writeMessage(char * data, const char * flag, UDP_MSG *& message_head, const
     else if (msg_write_mode == APPEND_MSG_MODE) {
         if (message_head == nullptr) {
             // head cannot be null in append mode
-            return;
+            return -1;
         }
-        UDP_MSG * current = message_head;
+        UDP_MSG *current = message_head;
         message_tail = current;
         while (current->next != nullptr) {
             current = current->next;
@@ -164,7 +164,8 @@ void writeMessage(char * data, const char * flag, UDP_MSG *& message_head, const
         // udp_msg->packet.data[chunkSize] = '\0';
 
         // calculate checksum and add to header
-        udp_msg->packet.header.checksum = calculateChecksum(udp_msg->packet.data, chunkSize);
+        udp_msg->packet.header.checksum = djb2_hash(udp_msg->packet.data, chunkSize);
+        cout << "Checksum: " << udp_msg->packet.header.checksum << endl;
 
         udp_msg->next = nullptr;
 
@@ -179,9 +180,13 @@ void writeMessage(char * data, const char * flag, UDP_MSG *& message_head, const
     }
     // set the last packet flag to true
     message_tail->packet.header.is_last_packet = 'Y';
+
+    // return the sequence number of the last packet
+    return packet_sequence_number - 1;
 }
 
 void readMessage(const struct UDP_MSG * message, char *& command, char *& data) {
+    cout << "In read message" << endl;
     const struct UDP_MSG * ptr = message;
 
     int command_size = 0, data_size = 0;
@@ -189,7 +194,7 @@ void readMessage(const struct UDP_MSG * message, char *& command, char *& data) 
     // calculate total size of the char buffers needed
     while (ptr != nullptr) {
         if (ptr->packet.header.flag == *COMMAND_FLAG) {
-            cout << "Packet size: " << strlen(ptr->packet.data) << endl;
+            // cout << "Packet size: " << strlen(ptr->packet.data) << endl;
             command_size += strlen(ptr->packet.data);
         }
         else if (ptr->packet.header.flag == *DATA_FLAG) {
@@ -199,7 +204,7 @@ void readMessage(const struct UDP_MSG * message, char *& command, char *& data) 
     }
 
     // reset and begin to copy
-    cout << "Command size: " << command_size << endl;
+    // cout << "Command size: " << command_size << endl;
     if (command_size > 0) {
         command = new char[command_size + 1];
         command[0] = '\0';
@@ -251,31 +256,16 @@ int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct soc
     cout << "Bytes sent: " << bytesSent<< endl;
 
     // clean up pointers
-    delete[] packet_data;
-    packet_data = nullptr;
-
-    return bytesSent;
+    deleteAndNullifyPointer(packet_data, true);
+    return 0;
 }
 
-int receiveUDPPacket(int sockfd, UDP_PACKET *& packet, struct sockaddr * remoteAddress, int timeout = 0) {
-    // set timeout for the recvfrom call if timeout is a positive value. usedful in receiving ack
-    if (timeout > 0) {
-        struct timeval tv;
-        tv.tv_sec = timeout;
-        tv.tv_usec = 0;
-
-        // Set the socket option for a receive timeout
-        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) == -1) {
-            std::cerr << "Error setting socket option" << std::endl;
-            close(sockfd);
-            return 1;
-        }
-    }
-    
+int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *remoteAddress) {
+    cout << "In receive UDP Packet" << endl;
     socklen_t serverlen = sizeof(struct sockaddr);
 
     // create the packet buffer data that is filled by the network
-    char * packet_data = new char[MAX_MSG_SIZE];
+    char *packet_data = new char[MAX_MSG_SIZE];
     packet_data[0] = '\0';
     
     // Receive a packet
@@ -285,24 +275,31 @@ int receiveUDPPacket(int sockfd, UDP_PACKET *& packet, struct sockaddr * remoteA
     cout << "Bytes received: " << bytesReceived << endl;
 
     // deserialize the packet data
-    int status = deserialize(packet_data, packet);
+    if (deserialize(packet_data, packet) != 0) {
+        // failure to deserialize the packet results in an error
+        deleteAndNullifyPointer(packet_data, true);
+        return -1;
+    }
 
-    if (status != 0) {
+    // compute the checksum of the packet
+    if (calculateChecksum(packet->data, strlen(packet->data)) != packet->header.checksum) {
+        // discard the packet
+        cout << "Discarded packet because checksum failed" << endl;
+        deleteAndNullifyPointer(packet_data, true);
         return -1;
     }
 
     // clean up pointers
-    delete[] packet_data;
-    packet_data = nullptr;
-
-    return bytesReceived;
+    deleteAndNullifyPointer(packet_data, true);
+    return 0;
 }
 
 // All send message operations are successful, upon the last ACK from the receiver
-int sendMessage(int sockfd, const struct UDP_MSG *message, uint16_t last_sequence_number, const struct sockaddr *remoteAddress) {
+int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequence_number, const struct sockaddr *remoteAddress) {
 
     const struct UDP_MSG *current_window_start = message, *next_window_start = nullptr;
-    int ack_status, expected_ack_number;
+    int ack_status;
+    uint32_t expected_ack_number;
 
     while (current_window_start != nullptr) {
         // send the window of packets starting from the current_window_start pointer
@@ -314,8 +311,8 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint16_t last_sequenc
         // wait for acknowledgement of expected_ack_number from the receiver
         ack_status = receiveAck(expected_ack_number, sockfd);
 
-        // if the status of acknowledgement is 1, it is a fail. retransmit the entire window
-        if (ack_status == 1) {
+        // if the status of acknowledgement is not 0, it is a fail. retransmit the entire window
+        if (ack_status != 0) {
             continue;
         }
 
@@ -327,38 +324,36 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint16_t last_sequenc
 }
 
 int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *remoteAddress) {
-    struct UDP_PACKET *packet = nullptr;
+    cout << "In receive message" << endl;
+    // pointers for message and window
+    struct UDP_MSG *message_tail = nullptr, *window_start = nullptr, *window_end = nullptr;
 
-    // reset head and tail of the linked message
-    message_head = nullptr;
-    struct UDP_MSG *message_tail = nullptr;
-
-    // message is needed for each packet to be encapsulated
-    UDP_MSG *message = nullptr;
-
-    int bytesReceived;
+    uint32_t expected_sequence_number = 1;
 
     do {
-        // receive a packet
-        bytesReceived = receiveUDPPacket(sockfd, packet, remoteAddress);
-
-        // put the packet into a new message
-        message = new UDP_MSG;
-        cout << "Packet size (in receive message): " << strlen(packet->data) << endl;
-        message->packet = *packet;
-        message->next = nullptr;
-
-        // add to the two pointer linked list
+        // receive a window of packets from the sender identified by start and end message pointers
+        receiveWindow(expected_sequence_number, window_start, window_end, sockfd, remoteAddress);
+        
+        // append the window of packets into the message
         if (message_head == nullptr) {
-            message_head = message;
-            message_tail = message;
+            message_head = window_start;
+            message_tail = window_end;
         }
         else {
-            message_tail->next = message;
-            message_tail = message;
+            message_tail->next = window_start;
+            message_tail = window_end;
         }
 
-    } while (message_tail->packet.header.is_last_packet == 'N');
+        // update next expected sequence number
+        expected_sequence_number = message_tail->packet.header.sequence_number + 1;
+
+        // send the acknowledgement back to sender
+        sendAck(message_tail->packet.header.sequence_number, sockfd, remoteAddress);
+
+        // reset window pointers
+        window_start = nullptr;
+        window_end = nullptr;
+    } while (message_tail->packet.header.is_last_packet != 'Y');
 
     return 0;
 }
