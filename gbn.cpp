@@ -45,7 +45,12 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
 
     struct UDP_MSG *message = nullptr, *current = nullptr, *previous = nullptr;
 
+    bool duplicate_packet = false;
+
     while (true) {
+        // reset the flag for duplicate
+        duplicate_packet = false;
+
         // wait for packets to arrive from the sender
         // accept packets only if their sequence number is in the accepted range (expected_sequence_number, expected_sequence_number + GBN_N - 1)
         status = receiveUDPPacket(sockfd, packet, remoteAddress);
@@ -83,6 +88,10 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
         message->packet = *packet;
         message->next = nullptr;
 
+        // delete the packet from memory as it's job is done
+        delete packet;
+        packet = nullptr;
+
         // insert message into the linked list
         if (window_start == nullptr) {
             window_start = message;
@@ -95,14 +104,22 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
             while (current != nullptr) {
                 if (current->packet.header.sequence_number == message->packet.header.sequence_number) {
                     // if the current packet sequence number is found in message, its a duplicate
-                    continue;
+                    cout << "Continuing due to packet already received" << endl;
+                    duplicate_packet = true;
+                    break;
                 }
                 if (current->packet.header.sequence_number > message->packet.header.sequence_number) {
                     // found the first packet, whose sequence number is greater than the message's sequence number
+                    cout << "Breaking: found the position to insert packet" << endl;
                     break;
                 }
                 previous = current;
                 current = current->next;
+            }
+
+            // continue if the packet is a duplicate (based on sequence number)
+            if (duplicate_packet) {
+                continue;
             }
 
             // current is the position to insert the message at
@@ -123,20 +140,20 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
         ++successful_packets;
 
         // if the window end packet is the last packet of the entire message and we have received all prior ones, break
-        // cout << "Considering whether to stop receiving more packets:" << endl;
-        // cout << "Window end seq number: " << window_end->packet.header.sequence_number << endl;
-        // cout << "Expected seq number start: " << expected_sequence_number << endl;
-        // cout << "successful_packets: " << successful_packets << endl;
-        // cout << window_end->packet.header.is_last_packet << endl;
+        cout << "Considering whether to stop receiving more packets:" << endl;
+        cout << "Window end seq number: " << window_end->packet.header.sequence_number << endl;
+        cout << "Expected seq number start: " << expected_sequence_number << endl;
+        cout << "successful_packets: " << successful_packets << endl;
+        cout << "Is last packet of window, the last one: " << window_end->packet.header.is_last_packet << endl;
         if (window_end->packet.header.is_last_packet == 'Y'
         && window_end->packet.header.sequence_number - expected_sequence_number == successful_packets - 1) {
-            // cout << "Receive window finished due to last packet received" << endl;
+            cout << "Receive window finished due to last packet received" << endl;
             break;
         }
 
         // if success_packets have exceeded or equalled to the window length value, break
         if (successful_packets >= GBN_VALUE) {
-            // cout << "Receive window finished due to GBN value reached" << endl;
+            cout << "Receive window finished due to GBN value reached" << endl;
             break;
         }
     }

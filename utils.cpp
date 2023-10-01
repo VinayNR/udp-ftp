@@ -16,8 +16,12 @@ uint32_t djb2_hash(const char* buffer, int length) {
 }
 
 bool validateChecksum(const char * packet_data, uint32_t checksum) {
+    cout << "Given checksum: " << checksum << endl;
     // compute the checksum of the packet
-    if (djb2_hash(packet_data, strlen(packet_data)) != checksum) {
+    cout << "Data: " << packet_data << " : " << strlen(packet_data) << endl;
+    uint32_t computedChecksum = djb2_hash(packet_data, strlen(packet_data));
+    cout << "Computed checksum: " << computedChecksum << endl;
+    if (computedChecksum != checksum) {
         // discard the packet
         cout << "Discarded packet because checksum failed" << endl;
         return false;

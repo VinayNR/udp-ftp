@@ -21,7 +21,7 @@
 using namespace std;
 
 const int MAX_MSG_SIZE = 1024;
-const int MAX_DATA_SIZE = 980; // adjust this
+const int MAX_DATA_SIZE = 100; // adjust this
 
 const char * COMMAND_FLAG = "C";
 const char * DATA_FLAG = "D";
