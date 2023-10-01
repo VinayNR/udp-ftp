@@ -43,20 +43,32 @@ int serialize(const struct UDP_PACKET * packet, char *& packet_buffer) {
     // Sequence number serialization
     sprintf(packet_buffer, "%d", packet->header.sequence_number);
 
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+
     // Delimiter
     packet_buffer[strlen(packet_buffer)] = '#';
+
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
 
     // Command or data flag
     packet_buffer[strlen(packet_buffer)] = packet->header.flag;
 
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+
     // Delimiter
     packet_buffer[strlen(packet_buffer)] = '#';
+
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
 
     // Last Packet flag
     packet_buffer[strlen(packet_buffer)] = packet->header.is_last_packet;
 
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+
     // Delimiter
     packet_buffer[strlen(packet_buffer)] = '#';
+
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
 
     // Checksum
     // Convert the uint32_t checksum to a string
@@ -65,12 +77,17 @@ int serialize(const struct UDP_PACKET * packet, char *& packet_buffer) {
     // Concatenate the checksum string with the data
     strcat(packet_buffer, checksumStr.c_str());
 
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+
     // Delimiter
     packet_buffer[strlen(packet_buffer)] = '#';
 
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+
     // Data
     strcat(packet_buffer, packet->data);
-    cout << "Copied data in serialization: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+    cout << "Packet buffer: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
+    // cout << "Copied data in serialization: " << packet_buffer << " : " << strlen(packet_buffer) << endl;
 
     return 0;
 }
@@ -197,6 +214,7 @@ void readMessage(const struct UDP_MSG * message, char *& command, char *& data) 
         }
         else if (ptr->packet.header.flag == *DATA_FLAG) {
             data_size += strlen(ptr->packet.data);
+            cout << "Data size: " << data_size << endl;
         }
         ptr = ptr->next;
     }
@@ -208,7 +226,7 @@ void readMessage(const struct UDP_MSG * message, char *& command, char *& data) 
     }
     if (data_size > 0) {
         data = new char[data_size + 1];
-        memset(command, 0, data_size + 1);
+        memset(data, 0, data_size + 1);
     }
     
     ptr = message;

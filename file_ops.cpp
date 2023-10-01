@@ -30,15 +30,13 @@ void readCurrentDirectory(const char * directory, char *& contents) {
 
         // Copy the concatenated file names to a char buffer
         contents = new char[concatenatedFileNames.size() + 1];
-        // memset(contents, 0, sizeof(contents));
+        memset(contents, 0, concatenatedFileNames.size() + 1);
 
         strcpy(contents, concatenatedFileNames.c_str());
-
-        // null terminate
-        contents[strlen(contents)] = '\0';
     }
     else {
         contents = new char[2];
+        memset(contents, 0, 2);
         strcpy(contents, " ");
     }
 }

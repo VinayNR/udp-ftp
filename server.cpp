@@ -37,7 +37,7 @@ void getFileResponseHandler(const char * filename, char *& response, char *& res
     }
 }
 
-void putFileResponseHandler(const char * filename, char * fileContents, char *& response, char *& response_type) {
+void putFileResponseHandler(const char * filename, char * fileContents, char *& response) {
 
     int status = putFile(filename, fileContents);
 
@@ -51,10 +51,9 @@ void putFileResponseHandler(const char * filename, char * fileContents, char *& 
         return;
     }
     strcat(response, "copied file to server");
-    strcpy(response_type, COMMAND_FLAG);
 }
 
-void deleteFileResponseHandler(const char * filename, char *& response, char *& response_type) {
+void deleteFileResponseHandler(const char * filename, char *& response) {
     // delete the file
     int status = deleteFile(filename);
 
@@ -68,19 +67,16 @@ void deleteFileResponseHandler(const char * filename, char *& response, char *& 
         return;
     }
     strcat(response, "file removed on server");
-    strcpy(response_type, COMMAND_FLAG);
 }
 
-void listFilesResponseHandler(char *& response, char *& response_type) {
+void listFilesResponseHandler(char *& response) {
     const char * currentDir = ".";
     readCurrentDirectory(currentDir, response);
-
-    // set response type
-    strcpy(response_type, COMMAND_FLAG);
 }
 
-void helpResponseHandler(char *& response, char *& response_type) {
+void helpResponseHandler(char *& response) {
     response = new char[100];
+    memset(response, 0, 100);
     strcpy(response, help_command);
     strcat(response, " ");
     strcat(response, ls_command);
@@ -92,51 +88,47 @@ void helpResponseHandler(char *& response, char *& response_type) {
     strcat(response, put_command);
     strcat(response, " ");
     strcat(response, delete_command);
-
-    // set response type
-    strcpy(response_type, COMMAND_FLAG);
 }
 
-void exitResponseHandler(char *& response, char *& response_type) {
+void exitResponseHandler(char *& response) {
     // send bye
     response = new char[5];
+    memset(response, 0, 5);
     strcpy(response, "bye");
-
-    // set response type
-    strcpy(response_type, COMMAND_FLAG);
 }
 
-void commandNotFoundHandler(char *& response, char *& response_type) {
+void commandNotFoundHandler(char *& response) {
     // send command not found
     response = new char[20];
+    memset(response, 0, 20);
     strcpy(response, "command not found");
-
-    // set response type
-    strcpy(response_type, COMMAND_FLAG);
 }
 
 void handleClientRequest(char * command, char * data, char *& response, char *& response_type) {
     // allocate a byte for response_type
     response_type = new char[1];
+    memset(response_type, 0, 1);
+
+    // default the response type from the client handler to a command flag
+    strcpy(response_type, COMMAND_FLAG);
 
     // check if the command had one or two words
     char * spacePos = strchr(command, ' ');
     if (spacePos == nullptr) {
         if (strcmp(command, help_command) == 0) {
             // cout << "Help Handler!" << endl;
-            helpResponseHandler(response, response_type);
+            helpResponseHandler(response);
         }
         else if (strcmp(command, ls_command) == 0) {
             // cout << "LS Handler!" << endl;
-            listFilesResponseHandler(response, response_type);
+            listFilesResponseHandler(response);
         }
         else if (strcmp(command, exit_command) == 0) {
             // cout << "Exit Handler!" << endl;
-            exitResponseHandler(response, response_type);
+            exitResponseHandler(response);
         }
         else {
-            strcpy(response_type, COMMAND_FLAG);
-            commandNotFoundHandler(response, response_type);
+            commandNotFoundHandler(response);
         }
     }
     else {
@@ -155,14 +147,14 @@ void handleClientRequest(char * command, char * data, char *& response, char *& 
         }
         else if (strncmp(command, put_command, strlen(put_command)) == 0) {
             cout << "Put Handler!" << endl;
-            putFileResponseHandler(filename, data, response, response_type);
+            putFileResponseHandler(filename, data, response);
         }
         else if (strncmp(command, delete_command, strlen(delete_command)) == 0) {
             cout << "Delete Handler!" << endl;
-            deleteFileResponseHandler(filename, response, response_type);
+            deleteFileResponseHandler(filename, response);
         }
         else {
-            commandNotFoundHandler(response, response_type);
+            commandNotFoundHandler(response);
         }
     }
 }

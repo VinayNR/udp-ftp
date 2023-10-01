@@ -123,9 +123,6 @@ int main(int argc, char * argv[]) {
                     // construct a message
                     last_sequence_number = writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
-                    // cout << "Message: " << udp_message_request->packet.data << endl;
-                    // cout << "Last Seq number: " << last_sequence_number << endl;
-
                     // send the message
                     sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *)remoteAddress);
 
@@ -137,88 +134,94 @@ int main(int argc, char * argv[]) {
 
                     // handle the response from server
                     printServerMessage(server_response);
+
+                    // exit the client if server sent a bye
+                    if (strcmp(server_response, "bye") == 0
+                    && strcmp(command, "exit") == 0) {
+                        return 0;
+                    }
                 }
             }
-            // else {
-                // // if space is found, assume second part is the name of a file
-                // char * filename = new char[strlen(spacePos) + 1];
-                // strncpy(filename, spacePos+1, strlen(spacePos));
+            else {
+                // if space is found, assume second part is the name of a file
+                char * filename = new char[strlen(spacePos) + 1];
+                strncpy(filename, spacePos+1, strlen(spacePos));
 
-                // // delete command
-                // if (strncmp(command, delete_command, strlen(delete_command)) == 0) {
-                //     // construct a message
-                //     writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+                // delete command
+                if (strncmp(command, delete_command, strlen(delete_command)) == 0) {
+                    // construct a message
+                    last_sequence_number = writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
-                //     // send the message request over the network
-                //     sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
+                    // send the message request over the network
+                    sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *) remoteAddress);
 
-                //     // wait for the response from server
-                //     receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+                    // wait for the response from server
+                    receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
-                //     // construct command part and data part from udp_message
-                //     readMessage(udp_message_response, server_response, server_data);
+                    // construct command part and data part from udp_message
+                    readMessage(udp_message_response, server_response, server_data);
 
-                //     // handle the response from server
-                //     printServerMessage(server_response);
-                // }
+                    // handle the response from server
+                    printServerMessage(server_response);
+                }
 
-                // // get command
-                // else if (strncmp(command, get_command, strlen(get_command)) == 0) {
-                //     // construct a message
-                //     writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+                // get command
+                else if (strncmp(command, get_command, strlen(get_command)) == 0) {
+                    // construct a message
+                    last_sequence_number = writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
-                //     // send the message request over the network
-                //     sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
+                    // send the message request over the network
+                    sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *) remoteAddress);
 
-                //     // wait for the response from server
-                //     receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+                    // wait for the response from server
+                    receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
-                //     // construct command part and data part from udp_message
-                //     readMessage(udp_message_response, server_response, server_data);
+                    // construct command part and data part from udp_message
+                    readMessage(udp_message_response, server_response, server_data);
 
-                //     // handle the response from server
-                //     if (server_response != nullptr) {
-                //         printServerMessage(server_response);
-                //     }
-                //     if (server_data != nullptr) {
-                //         handleServerData(server_data, filename);
-                //     }
-                // }
+                    // handle the response from server
+                    if (server_response != nullptr) {
+                        printServerMessage(server_response);
+                    }
+                    if (server_data != nullptr) {
+                        handleServerData(server_data, filename);
+                    }
+                }
                 
-                // // put command
-                // else if (strncmp(command, put_command, strlen(put_command)) == 0) {
-                //     // construct the command message
-                //     writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+                // put command
+                else if (strncmp(command, put_command, strlen(put_command)) == 0) {
+                    // construct the command message
+                    writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
-                //     // read the file from local directory
-                //     char * fileContents = nullptr;
-                //     int status = getFile(filename, fileContents);
-                //     if (status != 0) {
-                //         cout << "error reading file locally" << endl;
-                //         continue;
-                //     }
+                    // read the file from local directory
+                    char * fileContents = nullptr;
+                    int status = getFile(filename, fileContents);
+                    if (status != 0) {
+                        cout << "error reading file locally" << endl;
+                        continue;
+                    }
 
-                //     // construct the data message and append it
-                //     writeMessage(fileContents, DATA_FLAG, udp_message_request, APPEND_MSG_MODE);
+                    // construct the data message and append it
+                    last_sequence_number = writeMessage(fileContents, DATA_FLAG, udp_message_request, APPEND_MSG_MODE);
 
-                //     // send the messages request over the network
-                //     sendMessage(sockfd, udp_message_request, (struct sockaddr *) remoteAddress);
+                    // send the messages request over the network
+                    sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *) remoteAddress);
 
-                //     // wait for the response from server
-                //     receiveMessage(sockfd, udp_message_response, receivingRemoteAddress);
+                    // wait for the response from server
+                    receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
-                //     // construct command part and data part from udp_message
-                //     readMessage(udp_message_response, server_response, server_data);
+                    // construct command part and data part from udp_message
+                    readMessage(udp_message_response, server_response, server_data);
 
-                //     // handle the response from server
-                //     if (server_response != nullptr) {
-                //         printServerMessage(server_response);
-                //     }
-                //     if (server_data != nullptr) {
-                //         handleServerData(server_data, filename);
-                //     }
-                // }
-            // }
+                    // handle the response from server
+                    if (server_response != nullptr) {
+                        printServerMessage(server_response);
+                    }
+                    if (server_data != nullptr) {
+                        handleServerData(server_data, filename);
+                    }
+                }
+            }
         }
     }
     
