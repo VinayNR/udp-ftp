@@ -25,6 +25,8 @@ void getFileResponseHandler(const char * filename, char *& response, char *& res
     int status = getFile(filename, response);
     strcpy(response_type, DATA_FLAG);
 
+    cout << "File size: " << strlen(response) << endl;
+
     cout << "Filename : " << filename << " : " << strlen(filename) << endl;
 
     // check the status of get
@@ -219,11 +221,11 @@ int main(int argc, char * argv[]) {
     struct sockaddr_in remoteAddress;
 
     // command and data character buffers;
-    struct UDP_MSG * udp_message_request = nullptr, * udp_message_response = nullptr;
-    char * command = nullptr, * data = nullptr;
+    struct UDP_MSG *udp_message_request = nullptr, *udp_message_response = nullptr;
+    char *command = nullptr, *data = nullptr;
 
     // response from server
-    char * response = nullptr, * response_type = nullptr;
+    char *response = nullptr, *response_type = nullptr;
     int last_sequence_number;
 
     // main server loop
@@ -235,11 +237,11 @@ int main(int argc, char * argv[]) {
         udp_message_request = nullptr;
         udp_message_response = nullptr;
 
-        // free up command data
-        delete[] command;
-        delete[] data;
-        command = nullptr;
-        data = nullptr;
+        // free up pointers
+        deleteAndNullifyPointer(command, true);
+        deleteAndNullifyPointer(data, true);
+        deleteAndNullifyPointer(response, true);
+        deleteAndNullifyPointer(response_type, true);
 
         // receive a message (packets) on the socket, and populate the udp_message varaible
         receiveMessage(sockfd, udp_message_request, (struct sockaddr *) &remoteAddress);
@@ -252,6 +254,8 @@ int main(int argc, char * argv[]) {
        
         // encapsulate the response into a UDP message
         last_sequence_number = writeMessage(response, response_type, udp_message_response, NEW_MSG_MODE);
+
+        cout << "Last seq number: " << last_sequence_number << endl;
 
         // send the message (packets) on the socket
         sendMessage(sockfd, udp_message_response, last_sequence_number, (struct sockaddr *) &remoteAddress);

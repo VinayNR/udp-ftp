@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <iostream>
 
 using namespace std;
 
@@ -42,23 +43,32 @@ void readCurrentDirectory(const char * directory, char *& contents) {
 }
 
 int getFile(const char * filename, char *& fileContents) {
+    cout << "In get file" << endl;
     ifstream filestream (filename, ios::binary | ios::ate);
     if (!filestream.is_open()) {
+        cout << "Unable to open file" << endl;
         return 1;
     }
 
     int fileSize = filestream.tellg();
+    cout << "File size: " << fileSize << endl;
     filestream.seekg(0, ios::beg);
 
     fileContents = new char[fileSize + 1];
     memset(fileContents, 0, fileSize + 1);
 
-    if (!filestream.read(fileContents, fileSize)) {
+    char contents[fileSize+1];
+
+    cout << "sizeof: " << strlen(fileContents) << endl;
+
+    if (!filestream.read(contents, fileSize)) {
+        cout << "Unable to read file" << endl;
         return 1;
     }
 
-    // Null-terminate the string
-    // fileContents[fileSize] = '\0';
+    std::streamsize bytesRead = filestream.gcount();
+    cout << "Bytes read: " << bytesRead << endl;
+    cout << "File contents: " << strlen(contents) << endl;
 
     filestream.close();
     return 0;

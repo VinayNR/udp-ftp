@@ -21,7 +21,7 @@
 using namespace std;
 
 const int MAX_MSG_SIZE = 1024;
-const int MAX_DATA_SIZE = 100; // adjust this
+const int MAX_DATA_SIZE = 980; // adjust this
 
 const char * COMMAND_FLAG = "C";
 const char * DATA_FLAG = "D";
@@ -143,6 +143,8 @@ int writeMessage(const char *data, const char *flag, struct UDP_MSG *& message_h
     int packet_sequence_number = 1;
     int dataSize = strlen(data);
 
+    cout << "Size of data in write message : " << dataSize << endl;
+
     // calculate the tail pointer position
     if (msg_write_mode == NEW_MSG_MODE) {
         message_head = nullptr;
@@ -165,7 +167,7 @@ int writeMessage(const char *data, const char *flag, struct UDP_MSG *& message_h
         message_tail->packet.header.is_last_packet = 'N';
     }
     
-    UDP_MSG * udp_msg;
+    UDP_MSG *udp_msg = nullptr;
     for (int i=0; i<dataSize; i+=MAX_DATA_SIZE) {
         udp_msg = new UDP_MSG;
         memset(udp_msg, 0, sizeof(UDP_MSG));
