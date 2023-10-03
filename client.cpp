@@ -22,10 +22,10 @@ void printServerMessage(char * message) {
     cout << message << endl;
 }
 
-void handleServerData(char * data, char * filename) {
+void handleServerData(char * data, int dataSize, char * filename) {
     // save data from server locally
-    int status = putFile(filename, data);
-    if (status != 0) {
+    int status = putFile(filename, data, dataSize);
+    if (status == -1) {
         cout << "failed to copy file" << endl;
         return;
     }
@@ -93,6 +93,8 @@ int main(int argc, char * argv[]) {
 
     struct sockaddr_in receivingRemoteAddress;
     uint32_t last_sequence_number;
+
+    int serverResponseSize = 0, serverDataSize = 0;
     
     while (1) {
         cout << endl << "> ";
@@ -114,6 +116,9 @@ int main(int argc, char * argv[]) {
             server_response = nullptr;
             server_data = nullptr;
 
+            serverResponseSize = 0;
+            serverDataSize = 0;
+
             char * spacePos = strchr(command, ' ');
 
             if (spacePos == nullptr) {
@@ -121,7 +126,7 @@ int main(int argc, char * argv[]) {
                 || strcmp(command, ls_command) == 0
                 || strcmp(command, exit_command) == 0) {
                     // construct a message
-                    last_sequence_number = writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+                    last_sequence_number = writeMessage(command, strlen(command), COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
                     // send the message
                     sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *)remoteAddress);
@@ -130,7 +135,7 @@ int main(int argc, char * argv[]) {
                     receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
                     // construct command part and data part from udp_message
-                    readMessage(udp_message_response, server_response, server_data);
+                    readMessage(udp_message_response, server_response, &serverResponseSize, server_data, &serverDataSize);
 
                     // handle the response from server
                     printServerMessage(server_response);
@@ -150,7 +155,7 @@ int main(int argc, char * argv[]) {
                 // delete command
                 if (strncmp(command, delete_command, strlen(delete_command)) == 0) {
                     // construct a message
-                    last_sequence_number = writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+                    last_sequence_number = writeMessage(command, strlen(command), COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
                     // send the message request over the network
                     sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *) remoteAddress);
@@ -159,7 +164,7 @@ int main(int argc, char * argv[]) {
                     receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
                     // construct command part and data part from udp_message
-                    readMessage(udp_message_response, server_response, server_data);
+                    readMessage(udp_message_response, server_response, &serverResponseSize, server_data, &serverDataSize);
 
                     // handle the response from server
                     printServerMessage(server_response);
@@ -168,7 +173,7 @@ int main(int argc, char * argv[]) {
                 // get command
                 else if (strncmp(command, get_command, strlen(get_command)) == 0) {
                     // construct a message
-                    last_sequence_number = writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+                    last_sequence_number = writeMessage(command, strlen(command), COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
                     // send the message request over the network
                     sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *) remoteAddress);
@@ -177,32 +182,37 @@ int main(int argc, char * argv[]) {
                     receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
                     // construct command part and data part from udp_message
-                    readMessage(udp_message_response, server_response, server_data);
+                    readMessage(udp_message_response, server_response, &serverResponseSize, server_data, &serverDataSize);
 
                     // handle the response from server
                     if (server_response != nullptr) {
                         printServerMessage(server_response);
                     }
                     if (server_data != nullptr) {
-                        handleServerData(server_data, filename);
+                        cout << "Server data size: " << serverDataSize << endl;
+                        handleServerData(server_data, serverDataSize, filename);
                     }
                 }
                 
                 // put command
                 else if (strncmp(command, put_command, strlen(put_command)) == 0) {
                     // construct the command message
-                    writeMessage(command, COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
+                    writeMessage(command, strlen(command), COMMAND_FLAG, udp_message_request, NEW_MSG_MODE);
 
                     // read the file from local directory
-                    char * fileContents = nullptr;
-                    int status = getFile(filename, fileContents);
-                    if (status != 0) {
+                    char *fileContents = nullptr;
+                    int fileSize = getFile(filename, fileContents);
+                    cout << "Finished reading file: " << strlen(fileContents) << endl;
+                    if (fileSize == -1) {
                         cout << "error reading file locally" << endl;
                         continue;
                     }
 
                     // construct the data message and append it
-                    last_sequence_number = writeMessage(fileContents, DATA_FLAG, udp_message_request, APPEND_MSG_MODE);
+                    last_sequence_number = writeMessage(fileContents, fileSize, DATA_FLAG, udp_message_request, APPEND_MSG_MODE);
+
+                    // delete contents of file
+                    deleteAndNullifyPointer(fileContents, true);
 
                     // send the messages request over the network
                     sendMessage(sockfd, udp_message_request, last_sequence_number, (struct sockaddr *) remoteAddress);
@@ -211,14 +221,14 @@ int main(int argc, char * argv[]) {
                     receiveMessage(sockfd, udp_message_response, (struct sockaddr *) &receivingRemoteAddress);
 
                     // construct command part and data part from udp_message
-                    readMessage(udp_message_response, server_response, server_data);
+                    readMessage(udp_message_response, server_response, &serverResponseSize, server_data, &serverDataSize);
 
                     // handle the response from server
                     if (server_response != nullptr) {
                         printServerMessage(server_response);
                     }
                     if (server_data != nullptr) {
-                        handleServerData(server_data, filename);
+                        handleServerData(server_data, serverDataSize, filename);
                     }
                 }
             }

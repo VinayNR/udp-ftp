@@ -43,48 +43,41 @@ void readCurrentDirectory(const char * directory, char *& contents) {
 }
 
 int getFile(const char * filename, char *& fileContents) {
-    cout << "In get file" << endl;
     ifstream filestream (filename, ios::binary | ios::ate);
     if (!filestream.is_open()) {
         cout << "Unable to open file" << endl;
-        return 1;
+        return -1;
     }
 
     int fileSize = filestream.tellg();
-    cout << "File size: " << fileSize << endl;
     filestream.seekg(0, ios::beg);
 
     fileContents = new char[fileSize + 1];
     memset(fileContents, 0, fileSize + 1);
 
-    char contents[fileSize+1];
-
-    cout << "sizeof: " << strlen(fileContents) << endl;
-
-    if (!filestream.read(contents, fileSize)) {
+    if (!filestream.read(fileContents, fileSize)) {
         cout << "Unable to read file" << endl;
-        return 1;
+        return -1;
     }
 
-    std::streamsize bytesRead = filestream.gcount();
-    cout << "Bytes read: " << bytesRead << endl;
-    cout << "File contents: " << strlen(contents) << endl;
+    // std::streamsize bytesRead = filestream.gcount();
+    // cout << "Bytes read from file: " << bytesRead << endl;
 
     filestream.close();
-    return 0;
+    return fileSize;
 }
 
-int putFile(const char * filename, char * fileContents) {
-    ofstream outFile(filename);
+int putFile(const char * filename, char * fileContents, int dataSize) {
+    ofstream outFile(filename, ios::binary);
     if (!outFile.is_open()) {
-        return 1;
+        return -1;
     }
 
-    // Write the contents to the file
-    outFile << fileContents; 
+    // Write dataSize bytes from fileContents into the file
+    outFile.write(fileContents, dataSize);
 
     if (outFile.fail()) {
-        return 1;
+        return -1;
     }
 
     outFile.close();

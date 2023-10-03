@@ -21,34 +21,34 @@
 using namespace std;
 
 
-void getFileResponseHandler(const char * filename, char *& response, char *& response_type) {
-    int status = getFile(filename, response);
+int getFileResponseHandler(const char * filename, char *& response, char *& response_type) {
+    int fileSize = getFile(filename, response);
     strcpy(response_type, DATA_FLAG);
 
-    cout << "File size: " << strlen(response) << endl;
-
-    cout << "Filename : " << filename << " : " << strlen(filename) << endl;
-
     // check the status of get
-    if (status != 0) {
+    if (fileSize == -1) {
         delete[] response;
         response = new char[25];
         memset(response, 0, 25);
         strcat(response, "could not get file");
         strcpy(response_type, COMMAND_FLAG);
+        return -1;
     }
+
+    // cout << "File size: " << fileSize << endl;
+    return fileSize;
 }
 
-void putFileResponseHandler(const char * filename, char * fileContents, char *& response) {
+void putFileResponseHandler(const char * filename, char * fileContents, int dataSize, char *& response) {
 
-    int status = putFile(filename, fileContents);
+    int status = putFile(filename, fileContents, dataSize);
 
     // allocate memory for response
     response = new char[40];
     memset(response, 0, 40);
 
     // check the status of creation
-    if (status != 0) {
+    if (status == -1) {
         strcat(response, "could not write file to server");
         return;
     }
@@ -106,7 +106,7 @@ void commandNotFoundHandler(char *& response) {
     strcpy(response, "command not found");
 }
 
-void handleClientRequest(char * command, char * data, char *& response, char *& response_type) {
+int handleClientRequest(char * command, char * data, int dataSize, char *& response, char *& response_type) {
     // allocate a byte for response_type
     response_type = new char[1];
     memset(response_type, 0, 1);
@@ -145,11 +145,13 @@ void handleClientRequest(char * command, char * data, char *& response, char *& 
 
         if (strncmp(command, get_command, strlen(get_command)) == 0) {
             cout << "Get Handler!" << endl;
-            getFileResponseHandler(filename, response, response_type);
+            // return the file size obtained from the handler
+            int fileSize = getFileResponseHandler(filename, response, response_type);
+            return fileSize == -1? strlen(response): fileSize;
         }
         else if (strncmp(command, put_command, strlen(put_command)) == 0) {
             cout << "Put Handler!" << endl;
-            putFileResponseHandler(filename, data, response);
+            putFileResponseHandler(filename, data, dataSize, response);
         }
         else if (strncmp(command, delete_command, strlen(delete_command)) == 0) {
             cout << "Delete Handler!" << endl;
@@ -159,6 +161,9 @@ void handleClientRequest(char * command, char * data, char *& response, char *& 
             commandNotFoundHandler(response);
         }
     }
+
+    // return the string length of the response message
+    return strlen(response);
 }
 
 
@@ -228,8 +233,10 @@ int main(int argc, char * argv[]) {
     char *response = nullptr, *response_type = nullptr;
     int last_sequence_number;
 
+    int clientResponseSize, clientDataSize;
+
     // main server loop
-    while (1) {
+    while (true) {
 
         // free the memory of the linked list
         deleteMessage(udp_message_request);
@@ -243,19 +250,21 @@ int main(int argc, char * argv[]) {
         deleteAndNullifyPointer(response, true);
         deleteAndNullifyPointer(response_type, true);
 
+        // reset
+        clientResponseSize = 0;
+        clientDataSize = 0;
+
         // receive a message (packets) on the socket, and populate the udp_message varaible
         receiveMessage(sockfd, udp_message_request, (struct sockaddr *) &remoteAddress);
 
         // construct command part and data part from udp_message
-        readMessage(udp_message_request, command, data);
+        readMessage(udp_message_request, command, &clientResponseSize, data, &clientDataSize);
 
         // handle the request of the client
-        handleClientRequest(command, data, response, response_type);
-       
-        // encapsulate the response into a UDP message
-        last_sequence_number = writeMessage(response, response_type, udp_message_response, NEW_MSG_MODE);
+        int response_size = handleClientRequest(command, data, clientDataSize, response, response_type);
 
-        cout << "Last seq number: " << last_sequence_number << endl;
+        // encapsulate the response into a UDP message
+        last_sequence_number = writeMessage(response, response_size, response_type, udp_message_response, NEW_MSG_MODE);
 
         // send the message (packets) on the socket
         sendMessage(sockfd, udp_message_response, last_sequence_number, (struct sockaddr *) &remoteAddress);
