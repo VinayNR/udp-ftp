@@ -121,7 +121,8 @@ int deserialize(const char * packet_buffer, int packetSize, struct UDP_PACKET *&
     vector<int> allDelimiterPos = getAllDelimiterPos(packet_buffer, PACKET_DELIMITER);
 
     // check format
-    if (allDelimiterPos.size() != 4) {
+    if (allDelimiterPos.size() < 4) {
+        cout << "Number of delims is not 4" << endl;
         return -1;
     }
 
@@ -346,6 +347,7 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
     // deserialize the packet data
     if (deserialize(packet_data, bytesReceived, packet) == -1) {
         // failure to deserialize the packet results in an error
+        cout << "Failed to deserialize" << endl;
         deleteAndNullifyPointer(packet_data, true);
         return -1;
     }

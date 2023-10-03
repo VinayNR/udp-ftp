@@ -4,7 +4,7 @@
 #include "message.h"
 
 #define GBN_VALUE 10
-#define RTT 1
+#define RTT 2
 
 const struct UDP_MSG * sendWindow(const struct UDP_MSG *, int, const struct sockaddr *);
 
