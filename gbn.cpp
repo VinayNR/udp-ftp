@@ -56,16 +56,10 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
         // accept packets only if their sequence number is in the accepted range (expected_sequence_number, expected_sequence_number + GBN_N - 1)
         bytesReceived = receiveUDPPacket(sockfd, packet, remoteAddress);
 
-        if (bytesReceived == -1) {
-            // delete pointers
-            delete packet;
-            packet = nullptr;
-            // the packet was corrupt, discard it
-            continue;
-        }
-
-        // check if the packet's checksum is the same
-        if (!validateChecksum(packet->data, packet->header.dataSize, packet->header.checksum)) {
+        // reject the packet if no data received, or if checksum fails, or if received a different packet
+        if (bytesReceived == -1
+        || !validateChecksum(packet->data, packet->header.dataSize, packet->header.checksum)
+        || (packet->header.flag != *COMMAND_FLAG && packet->header.flag != *DATA_FLAG)) {
             // delete pointers
             delete packet;
             packet = nullptr;
@@ -206,7 +200,10 @@ int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
         // wait for acknowledgement from the server
         bytesReceived = receiveUDPPacket(sockfd, ack_packet, remoteAddress);
         // cout << "Status received for ACK: " << status << endl;
-        if (bytesReceived == -1) {
+
+        // reject the packet if no data received, or if the packet was not an acknowledgement
+        if (bytesReceived == -1
+        || ack_packet->header.flag != 'A') {
             // reset socket timeout to 0, indicating no timeout
             setSocketTimeout(sockfd, 0);
             // indicate a failure
