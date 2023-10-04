@@ -23,6 +23,7 @@ using namespace std;
 const char * COMMAND_FLAG = "C";
 const char * DATA_FLAG = "D";
 const char * ACK_FLAG = "A";
+const char * EXCP_FLAG = "E";
 
 const char * APPEND_MSG_MODE = "A";
 const char * NEW_MSG_MODE = "N";
@@ -121,7 +122,8 @@ int deserialize(const char * packet_buffer, int packetSize, struct UDP_PACKET *&
     vector<int> allDelimiterPos = getAllDelimiterPos(packet_buffer, PACKET_DELIMITER);
 
     // check format
-    if (allDelimiterPos.size() != 4) {
+    if (allDelimiterPos.size() < 4) {
+        cout << "Number of delims is not 4" << endl;
         return -1;
     }
 
@@ -315,13 +317,13 @@ int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct soc
     }
 
     // Send the packet
-    cout << "Sending data: " << packet_data << " : " << packetSize << endl;
+    // cout << "Sending data: " << packet_data << " : " << packetSize << endl;
     int bytesSent = sendto(sockfd, packet_data, packetSize, 0, remoteAddress, serverlen);
 
     if (bytesSent == -1) {
         cerr << "Error sending data: " << strerror(errno) << endl;
     } else {
-        cout << "Bytes sent: " << bytesSent << endl;
+        // cout << "Bytes sent: " << bytesSent << endl;
     }
 
     // clean up pointers
@@ -340,16 +342,19 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
     // Receive a packet
     int bytesReceived = recvfrom(sockfd, packet_data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
 
-    cout << "Received data: " << packet_data << " : " << bytesReceived << endl;
-    cout << "Bytes received: " << bytesReceived << endl;
+    // cout << "Received data: " << packet_data << " : " << bytesReceived << endl;
+    // cout << "Bytes received: " << bytesReceived << endl;
 
+    if (bytesReceived == -1)  {
+        return -1;
+    }
     // deserialize the packet data
     if (deserialize(packet_data, bytesReceived, packet) == -1) {
         // failure to deserialize the packet results in an error
+        cout << "Failed to deserialize" << endl;
         deleteAndNullifyPointer(packet_data, true);
         return -1;
     }
-    cout << "After deserializing, size of data (no headers): " << packet->header.dataSize << endl;
 
     // clean up pointers
     deleteAndNullifyPointer(packet_data, true);
@@ -358,7 +363,8 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
 
 // All send message operations are successful, upon the last ACK from the receiver
 int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequence_number, const struct sockaddr *remoteAddress) {
-    // cout << "In send message" << endl;
+    cout << endl << "----------------------------------------" << endl;
+    cout << "In send message" << endl;
     const struct UDP_MSG *current_window_start = message, *next_window_start = nullptr;
     int ack_status;
     uint32_t expected_ack_number;
@@ -370,14 +376,20 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
         // if next_window_start is nullptr, then it was the last window of the message
         expected_ack_number = (next_window_start == nullptr)? last_sequence_number: next_window_start->packet.header.sequence_number - 1;
         
-        // wait for acknowledgement of expected_ack_number from the receiver
-        ack_status = receiveAck(expected_ack_number, sockfd);
-
-        // if the status of acknowledgement is not 0, it is a fail. retransmit the entire window
-        if (ack_status != 0) {
-            continue;
+        // wait for acknowledgement of expected_ack_number from the receiver, or an excpetion
+        try {
+            ack_status = receiveAck(expected_ack_number, sockfd);
+            // if the status of acknowledgement is -1, it is a fail, retransmit the entire window
+            if (ack_status == -1) {
+                continue;
+            }
+        } catch(uint32_t excp_number) {
+            if (excp_number == next_window_start->packet.header.sequence_number) {
+                // update the current_window_start pointer for the next iteration
+                current_window_start = next_window_start;
+            }
         }
-
+        
         // update the current_window_start pointer for the next iteration
         current_window_start = next_window_start;
     }
@@ -386,7 +398,8 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
 }
 
 int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *remoteAddress) {
-    // cout << "In receive message" << endl;
+    cout << endl << "----------------------------------------" << endl;
+    cout << "In receive message" << endl;
     // pointers for message and window
     struct UDP_MSG *message_tail = nullptr, *window_start = nullptr, *window_end = nullptr;
 
@@ -418,4 +431,19 @@ int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *
     } while (message_tail->packet.header.is_last_packet != 'Y');
 
     return 0;
+}
+
+struct UDP_PACKET * constructSimplePacket(uint32_t sequence_number, char flag_type, char *data) {
+    struct UDP_PACKET *simplePacket = new UDP_PACKET;
+    memset(simplePacket, 0, sizeof(UDP_PACKET));
+
+    simplePacket->header.sequence_number = sequence_number;
+    simplePacket->header.flag = flag_type;
+    simplePacket->header.is_last_packet = 'Y';
+
+    strcpy(simplePacket->data, data);
+    simplePacket->header.dataSize = strlen(simplePacket->data);
+    simplePacket->header.checksum = djb2_hash(simplePacket->data, strlen(simplePacket->data));
+
+    return simplePacket;
 }
