@@ -10,6 +10,7 @@ using namespace std;
 const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const struct sockaddr *remoteAddress) {
     // send frames of packets starting from the start pointer on the message
     // send upto GBN_N packets as defined in this file
+    cout << endl << "----------------------------------------" << endl;
     cout << "In send window with starting seq number: " << start->packet.header.sequence_number << endl;
     const struct UDP_MSG *current = start;
 
@@ -18,7 +19,7 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
     // iterate until GBN_N packets are sent or the end of list is reached (whichever is first)
     int packets_sent = 0;
     while (current != nullptr && packets_sent < GBN_VALUE) {
-        cout << endl << "----------------------------------------" << endl;
+        cout << "----------------------------------------" << endl;
         // send the packet pointed to by the current index
         bytesSent = sendUDPPacket(sockfd, &(current->packet), remoteAddress);
         // cout << "Data size in window: " << current->packet.header.dataSize << endl;
@@ -56,7 +57,7 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
     while (true) {
         // reset the flag for duplicate
         duplicate_packet = false;
-        cout << endl << "----------------------------------------" << endl;
+        cout << "----------------------------------------" << endl;
 
         // wait for packets to arrive from the sender
         // accept packets only if their sequence number is in the accepted range (expected_sequence_number, expected_sequence_number + GBN_N - 1)
@@ -84,7 +85,7 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
             delete packet;
             packet = nullptr;
             // wrong packet arrived, discard it
-            cout << "Incorrect sequence number of packet" << endl;
+            cout << "Incorrect sequence number of packet was expecting: " << expected_sequence_number << endl;
             continue;
         }
 
@@ -219,6 +220,7 @@ int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
         if (bytesReceived == -1
         || ack_packet->header.flag != 'A') {
             // reset socket timeout to 0, indicating no timeout
+            cout << "Didn't get ACK, resending entire window" << endl;
             setSocketTimeout(sockfd, 0);
             // indicate a failure
             return -1;
