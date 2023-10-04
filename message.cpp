@@ -322,7 +322,7 @@ int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct soc
     if (bytesSent == -1) {
         cerr << "Error sending data: " << strerror(errno) << endl;
     } else {
-        cout << "Bytes sent: " << bytesSent << endl;
+        // cout << "Bytes sent: " << bytesSent << endl;
     }
 
     // clean up pointers
