@@ -42,6 +42,7 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
 
 void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_start, struct UDP_MSG *& window_end, int sockfd, struct sockaddr *remoteAddress) {
  
+    cout << endl << "----------------------------------------" << endl;
     cout << "In receive window with expected_sequence_number: " << expected_sequence_number << endl;
     // cout << "In receive window" << endl;
     // packet is set by the receive UDP packet function call

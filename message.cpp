@@ -344,6 +344,9 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
     // cout << "Received data: " << packet_data << " : " << bytesReceived << endl;
     // cout << "Bytes received: " << bytesReceived << endl;
 
+    if (bytesReceived == -1)  {
+        return -1;
+    }
     // deserialize the packet data
     if (deserialize(packet_data, bytesReceived, packet) == -1) {
         // failure to deserialize the packet results in an error
