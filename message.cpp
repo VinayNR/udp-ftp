@@ -316,7 +316,7 @@ int sendUDPPacket(int sockfd, const struct UDP_PACKET * packet, const struct soc
     }
 
     // Send the packet
-    cout << "Sending data: " << packet_data << " : " << packetSize << endl;
+    // cout << "Sending data: " << packet_data << " : " << packetSize << endl;
     int bytesSent = sendto(sockfd, packet_data, packetSize, 0, remoteAddress, serverlen);
 
     if (bytesSent == -1) {
@@ -341,8 +341,8 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
     // Receive a packet
     int bytesReceived = recvfrom(sockfd, packet_data, MAX_MSG_SIZE, 0, remoteAddress, &serverlen);
 
-    cout << "Received data: " << packet_data << " : " << bytesReceived << endl;
-    cout << "Bytes received: " << bytesReceived << endl;
+    // cout << "Received data: " << packet_data << " : " << bytesReceived << endl;
+    // cout << "Bytes received: " << bytesReceived << endl;
 
     // deserialize the packet data
     if (deserialize(packet_data, bytesReceived, packet) == -1) {
@@ -351,7 +351,7 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
         deleteAndNullifyPointer(packet_data, true);
         return -1;
     }
-    cout << "After deserializing, size of data (no headers): " << packet->header.dataSize << endl;
+    // cout << "After deserializing, size of data (no headers): " << packet->header.dataSize << endl;
 
     // clean up pointers
     deleteAndNullifyPointer(packet_data, true);
@@ -360,7 +360,7 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
 
 // All send message operations are successful, upon the last ACK from the receiver
 int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequence_number, const struct sockaddr *remoteAddress) {
-    // cout << "In send message" << endl;
+    cout << "In send message" << endl;
     const struct UDP_MSG *current_window_start = message, *next_window_start = nullptr;
     int ack_status;
     uint32_t expected_ack_number;
@@ -388,7 +388,7 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
 }
 
 int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *remoteAddress) {
-    // cout << "In receive message" << endl;
+    cout << "In receive message" << endl;
     // pointers for message and window
     struct UDP_MSG *message_tail = nullptr, *window_start = nullptr, *window_end = nullptr;
 

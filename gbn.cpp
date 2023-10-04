@@ -10,7 +10,7 @@ using namespace std;
 const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const struct sockaddr *remoteAddress) {
     // send frames of packets starting from the start pointer on the message
     // send upto GBN_N packets as defined in this file
-    // cout << "In send window" << endl;
+    cout << "In send window with starting seq number: " << start->packet.header.sequence_number << endl;
     const struct UDP_MSG *current = start;
 
     int bytesSent;
@@ -20,12 +20,16 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
     while (current != nullptr && packets_sent < GBN_VALUE) {
         // send the packet pointed to by the current index
         bytesSent = sendUDPPacket(sockfd, &(current->packet), remoteAddress);
-        cout << "Data size in window: " << current->packet.header.dataSize << endl;
+        // cout << "Data size in window: " << current->packet.header.dataSize << endl;
 
         if (bytesSent == -1) {
             // resend the packet
             continue;
         }
+
+        cout << endl << "----------------------------------------" << endl;
+        cout << "Sequence number sent: " << current->packet.header.sequence_number << endl;
+        cout << "Bytes sent: " << bytesSent << endl;
 
         // increment counter variables
         ++packets_sent;
@@ -39,6 +43,7 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
 
 void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_start, struct UDP_MSG *& window_end, int sockfd, struct sockaddr *remoteAddress) {
  
+    cout << "In receive window with expected_sequence_number: " << expected_sequence_number << endl;
     // cout << "In receive window" << endl;
     // packet is set by the receive UDP packet function call
     struct UDP_PACKET *packet = nullptr;
@@ -55,6 +60,11 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
         // wait for packets to arrive from the sender
         // accept packets only if their sequence number is in the accepted range (expected_sequence_number, expected_sequence_number + GBN_N - 1)
         bytesReceived = receiveUDPPacket(sockfd, packet, remoteAddress);
+
+        cout << endl << "----------------------------------------" << endl;
+        cout << "Sequence number received: " << packet->header.sequence_number << endl;
+        cout << "Bytes received: " << bytesReceived << endl;
+        
 
         // reject the packet if no data received, or if checksum fails, or if received a different packet
         if (bytesReceived == -1
