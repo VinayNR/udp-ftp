@@ -143,10 +143,12 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
                 window_end = message;
             }
 
-            previous->next = message;
             // check if the message was inserted at the first position
             if (previous == nullptr) {
                 window_start = message;
+            }
+            else {
+                previous->next = message;
             }
         }
 
