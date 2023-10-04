@@ -89,19 +89,26 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
             continue;
         }
 
+        cout << "Packet accpeted" << endl;
+
         // construct a message
         message = new UDP_MSG;
         message->packet = *packet;
         message->next = nullptr;
 
+        cout << "Message constructed" << endl;
+
         // delete the packet from memory as it's job is done
         delete packet;
         packet = nullptr;
+
+        cout << "Packet deleted" << endl;
 
         // insert message into the linked list
         if (window_start == nullptr) {
             window_start = message;
             window_end = message;
+            cout << "First message of window" << endl;
         }
         else {
             // find position of insertion
@@ -116,7 +123,7 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
                 }
                 if (current->packet.header.sequence_number > message->packet.header.sequence_number) {
                     // found the first packet, whose sequence number is greater than the message's sequence number
-                    // cout << "Breaking: found the position to insert packet" << endl;
+                    cout << "Breaking: found the position to insert packet" << endl;
                     break;
                 }
                 previous = current;
@@ -132,6 +139,7 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
             message->next = current;
             // check if the message was inserted at the last position
             if (message->next == nullptr) {
+                cout << "Last message of window" << endl;
                 window_end = message;
             }
 
