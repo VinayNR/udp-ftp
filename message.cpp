@@ -360,6 +360,7 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
 
 // All send message operations are successful, upon the last ACK from the receiver
 int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequence_number, const struct sockaddr *remoteAddress) {
+    cout << endl << "----------------------------------------" << endl;
     cout << "In send message" << endl;
     const struct UDP_MSG *current_window_start = message, *next_window_start = nullptr;
     int ack_status;
@@ -388,6 +389,7 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
 }
 
 int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *remoteAddress) {
+    cout << endl << "----------------------------------------" << endl;
     cout << "In receive message" << endl;
     // pointers for message and window
     struct UDP_MSG *message_tail = nullptr, *window_start = nullptr, *window_end = nullptr;
