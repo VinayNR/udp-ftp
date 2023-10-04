@@ -265,6 +265,7 @@ int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
         }
         else if (ack_packet->header.flag == *EXCP_FLAG) {
             // received an exception flag, throw an excpetion with the sequence number obtained
+            cout << "Exception received, request to set sequence number to: " << ack_packet->header.sequence_number << endl;
             throw ack_packet->header.sequence_number;
         }
     }

@@ -383,7 +383,7 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
             if (ack_status == -1) {
                 continue;
             }
-        } catch(int excp_number) {
+        } catch(uint32_t excp_number) {
             if (excp_number == next_window_start->packet.header.sequence_number) {
                 // update the current_window_start pointer for the next iteration
                 current_window_start = next_window_start;
