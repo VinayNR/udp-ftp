@@ -18,6 +18,7 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
     // iterate until GBN_N packets are sent or the end of list is reached (whichever is first)
     int packets_sent = 0;
     while (current != nullptr && packets_sent < GBN_VALUE) {
+        cout << endl << "----------------------------------------" << endl;
         // send the packet pointed to by the current index
         bytesSent = sendUDPPacket(sockfd, &(current->packet), remoteAddress);
         // cout << "Data size in window: " << current->packet.header.dataSize << endl;
@@ -26,8 +27,6 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
             // resend the packet
             continue;
         }
-
-        cout << endl << "----------------------------------------" << endl;
         cout << "Sequence number sent: " << current->packet.header.sequence_number << endl;
         cout << "Bytes sent: " << bytesSent << endl;
 
@@ -56,12 +55,12 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
     while (true) {
         // reset the flag for duplicate
         duplicate_packet = false;
+        cout << endl << "----------------------------------------" << endl;
 
         // wait for packets to arrive from the sender
         // accept packets only if their sequence number is in the accepted range (expected_sequence_number, expected_sequence_number + GBN_N - 1)
         bytesReceived = receiveUDPPacket(sockfd, packet, remoteAddress);
 
-        cout << endl << "----------------------------------------" << endl;
         cout << "Sequence number received: " << packet->header.sequence_number << endl;
         cout << "Bytes received: " << bytesReceived << endl;
         
@@ -165,7 +164,8 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
 }
 
 void sendAck(uint32_t last_received_sequence_number, int sockfd, const struct sockaddr *remoteAddress) {
-    // cout << "In send ACK (with ack number): " << last_received_sequence_number << endl;
+    cout << endl << "----------------------------------------" << endl;
+    cout << "In send ACK (with ack number): " << last_received_sequence_number << endl;
     // send a udp packet with the ack number in the packet's sequence number field
     // the ack is always a single packet and not a message
 
@@ -189,13 +189,16 @@ void sendAck(uint32_t last_received_sequence_number, int sockfd, const struct so
         bytesSent = sendUDPPacket(sockfd, ack_packet, remoteAddress);
     } while (bytesSent == -1);
 
+    cout << "ACK Sent for sequence: " << last_received_sequence_number << endl;
+
     // clean up
     delete ack_packet;
     ack_packet = nullptr;
 }
 
 int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
-    // cout << "In receive ACK" << endl;
+    cout << endl << "----------------------------------------" << endl;
+    cout << "In receive ACK" << endl;
     // variable to hold the sender's address
     struct sockaddr *remoteAddress = nullptr;
 
@@ -222,6 +225,7 @@ int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
         // check if the ACK packet is the last sequence number expected
         if (window_last_sequence_number == ack_packet->header.sequence_number) {
             // reset socket timeout to 0, indicating no timeout
+            cout << "ACK Received for sequence: " << window_last_sequence_number << endl;
             setSocketTimeout(sockfd, 0);
             break;
         }
