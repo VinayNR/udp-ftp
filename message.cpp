@@ -23,6 +23,7 @@ using namespace std;
 const char * COMMAND_FLAG = "C";
 const char * DATA_FLAG = "D";
 const char * ACK_FLAG = "A";
+const char * EXCP_FLAG = "E";
 
 const char * APPEND_MSG_MODE = "A";
 const char * NEW_MSG_MODE = "N";
@@ -354,7 +355,6 @@ int receiveUDPPacket(int sockfd, struct UDP_PACKET *& packet, struct sockaddr *r
         deleteAndNullifyPointer(packet_data, true);
         return -1;
     }
-    // cout << "After deserializing, size of data (no headers): " << packet->header.dataSize << endl;
 
     // clean up pointers
     deleteAndNullifyPointer(packet_data, true);
@@ -376,14 +376,20 @@ int sendMessage(int sockfd, const struct UDP_MSG *message, uint32_t last_sequenc
         // if next_window_start is nullptr, then it was the last window of the message
         expected_ack_number = (next_window_start == nullptr)? last_sequence_number: next_window_start->packet.header.sequence_number - 1;
         
-        // wait for acknowledgement of expected_ack_number from the receiver
-        ack_status = receiveAck(expected_ack_number, sockfd);
-
-        // if the status of acknowledgement is not 0, it is a fail. retransmit the entire window
-        if (ack_status != 0) {
-            continue;
+        // wait for acknowledgement of expected_ack_number from the receiver, or an excpetion
+        try {
+            ack_status = receiveAck(expected_ack_number, sockfd);
+            // if the status of acknowledgement is -1, it is a fail, retransmit the entire window
+            if (ack_status == -1) {
+                continue;
+            }
+        } catch(int excp_number) {
+            if (excp_number == next_window_start->packet.header.sequence_number) {
+                // update the current_window_start pointer for the next iteration
+                current_window_start = next_window_start;
+            }
         }
-
+        
         // update the current_window_start pointer for the next iteration
         current_window_start = next_window_start;
     }
@@ -425,4 +431,19 @@ int receiveMessage(int sockfd, struct UDP_MSG *& message_head, struct sockaddr *
     } while (message_tail->packet.header.is_last_packet != 'Y');
 
     return 0;
+}
+
+struct UDP_PACKET * constructSimplePacket(uint32_t sequence_number, char flag_type, char *data) {
+    struct UDP_PACKET *simplePacket = new UDP_PACKET;
+    memset(simplePacket, 0, sizeof(UDP_PACKET));
+
+    simplePacket->header.sequence_number = sequence_number;
+    simplePacket->header.flag = flag_type;
+    simplePacket->header.is_last_packet = 'Y';
+
+    strcpy(simplePacket->data, data);
+    simplePacket->header.dataSize = strlen(simplePacket->data);
+    simplePacket->header.checksum = djb2_hash(simplePacket->data, strlen(simplePacket->data));
+
+    return simplePacket;
 }

@@ -4,6 +4,7 @@
 #include "utils.h"
 
 #include <iostream>
+#include <stdexcept>
 
 using namespace std;
 
@@ -42,7 +43,7 @@ const struct UDP_MSG * sendWindow(const struct UDP_MSG *start, int sockfd, const
 }
 
 void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_start, struct UDP_MSG *& window_end, int sockfd, struct sockaddr *remoteAddress) {
- 
+
     cout << endl << "----------------------------------------" << endl;
     cout << "In receive window with expected_sequence_number: " << expected_sequence_number << endl;
     // cout << "In receive window" << endl;
@@ -53,6 +54,8 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
     struct UDP_MSG *message = nullptr, *current = nullptr, *previous = nullptr;
 
     bool duplicate_packet = false;
+
+    int incorrect_sequenced_packets = 0;
 
     while (true) {
         // reset the flag for duplicate
@@ -86,6 +89,13 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
             packet = nullptr;
             // wrong packet arrived, discard it
             cout << "Incorrect sequence number of packet was expecting: " << expected_sequence_number << endl;
+            ++incorrect_sequenced_packets;
+
+            // trigger an exception to server indicating they are not in sync of the window
+            if (incorrect_sequenced_packets >= GBN_VALUE) {
+                sendException(expected_sequence_number, sockfd, remoteAddress);
+                incorrect_sequenced_packets = 0;
+            }
             continue;
         }
 
@@ -175,26 +185,33 @@ void receiveWindow(uint32_t expected_sequence_number, struct UDP_MSG *& window_s
     }
 }
 
+void sendException(uint32_t expected_start_sequence_number, int sockfd, const struct sockaddr *remoteAddress) {
+    cout << endl << "----------------------------------------" << endl;
+    cout << "In send excpetion (with seq number): " << expected_start_sequence_number << endl;
+
+    // construct an exception packet
+    struct UDP_PACKET *excp_packet = constructSimplePacket(expected_start_sequence_number, *EXCP_FLAG, "EXC");
+
+    // send this packet out on the network
+    int bytesSent;
+    do {
+        bytesSent = sendUDPPacket(sockfd, excp_packet, remoteAddress);
+    } while (bytesSent == -1);
+
+    cout << "Excpetion Sent, requesting for seq number: " << expected_start_sequence_number << endl;
+
+    // clean up
+    delete excp_packet;
+    excp_packet = nullptr;   
+}
+
 void sendAck(uint32_t last_received_sequence_number, int sockfd, const struct sockaddr *remoteAddress) {
     cout << endl << "----------------------------------------" << endl;
     cout << "In send ACK (with ack number): " << last_received_sequence_number << endl;
-    // send a udp packet with the ack number in the packet's sequence number field
-    // the ack is always a single packet and not a message
 
-    // allocate memory for the ack packet and set it to 0
-    struct UDP_PACKET *ack_packet = new UDP_PACKET;
-    memset(ack_packet, 0, sizeof(UDP_PACKET));
+    // construct an ACK packet
+    struct UDP_PACKET *ack_packet = constructSimplePacket(last_received_sequence_number, *ACK_FLAG, "ACK");
 
-    // set the various fields of the ACK packet
-    ack_packet->header.sequence_number = last_received_sequence_number;
-    ack_packet->header.flag = *ACK_FLAG;
-    ack_packet->header.is_last_packet = 'Y';
-    
-    // data for ACK packet is set to string ACK
-    strcpy(ack_packet->data, "ACK");
-    ack_packet->header.dataSize = strlen(ack_packet->data);
-    ack_packet->header.checksum = djb2_hash(ack_packet->data, strlen(ack_packet->data));
-    
     // send this packet out on the network
     int bytesSent;
     do {
@@ -224,23 +241,31 @@ int receiveAck(uint32_t window_last_sequence_number, int sockfd) {
     while (true) {
         // wait for acknowledgement from the server
         bytesReceived = receiveUDPPacket(sockfd, ack_packet, remoteAddress);
-        // cout << "Status received for ACK: " << status << endl;
 
-        // reject the packet if no data received, or if the packet was not an acknowledgement
-        if (bytesReceived == -1
-        || ack_packet->header.flag != 'A') {
-            // reset socket timeout to 0, indicating no timeout
+        // reset the socket wait time
+        setSocketTimeout(sockfd, 0);
+
+        // if nothing is received, or packet was deformed
+        if (bytesReceived == -1) {
             cout << "Didn't get ACK, resending entire window" << endl;
-            setSocketTimeout(sockfd, 0);
-            // indicate a failure
             return -1;
         }
-        // check if the ACK packet is the last sequence number expected
-        if (window_last_sequence_number == ack_packet->header.sequence_number) {
-            // reset socket timeout to 0, indicating no timeout
-            cout << "ACK Received for sequence: " << window_last_sequence_number << endl;
-            setSocketTimeout(sockfd, 0);
-            break;
+
+        if (ack_packet->header.flag == *ACK_FLAG) {
+            // check for the ack packet sequence number
+            if (window_last_sequence_number == ack_packet->header.sequence_number) {
+                // reset socket timeout to 0, indicating no timeout
+                cout << "ACK Received for sequence: " << window_last_sequence_number << endl;
+                return 0;
+            }
+            else {
+                cout << "Received wrong ACK, number received: " << ack_packet->header.sequence_number << endl;
+                return -1;
+            }
+        }
+        else if (ack_packet->header.flag == *EXCP_FLAG) {
+            // received an exception flag, throw an excpetion with the sequence number obtained
+            throw ack_packet->header.sequence_number;
         }
     }
     return 0;

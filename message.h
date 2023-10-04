@@ -12,6 +12,7 @@
 extern const char * COMMAND_FLAG;
 extern const char * DATA_FLAG;
 extern const char * ACK_FLAG;
+extern const char * EXCP_FLAG;
 
 extern const char * APPEND_MSG_MODE;
 extern const char * NEW_MSG_MODE;
@@ -42,6 +43,8 @@ int deserialize(const char*, int, struct UDP_PACKET *&);
 int sendUDPPacket(int, const struct UDP_PACKET*, const struct sockaddr*);
 
 int receiveUDPPacket(int, struct UDP_PACKET *&, struct sockaddr*);
+
+struct UDP_PACKET * constructSimplePacket(uint32_t, char, char *);
 
 // Message Operations
 int writeMessage(const char*, int, const char*, struct UDP_MSG *&, const char*);

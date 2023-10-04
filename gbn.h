@@ -14,4 +14,6 @@ void sendAck(uint32_t, int, const struct sockaddr *);
 
 int receiveAck(uint32_t, int);
 
+void sendException(uint32_t, int, const struct sockaddr *);
+
 #endif
